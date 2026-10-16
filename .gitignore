@@ -1,0 +1,39 @@
+# Virtual Environment (Python)
+backend/venv/
+venv/
+ENV/
+env/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Django Local Database & Secrets
+backend/db.sqlite3
+*.sqlite3
+backend/.env
+.env
+
+# Media uploads (QR codes generated locally)
+backend/media/
+
+# Frontend dependencies and builds
+frontend/node_modules/
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Documentation files
+*.docx
