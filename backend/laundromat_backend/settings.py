@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -25,7 +26,7 @@ SECRET_KEY = 'django-insecure-rk$5e%!4cf#ra8+yad0i)u))b3*wrg71n(t3-xje_@5$^@#w!!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -129,8 +130,10 @@ MEDIA_ROOT = BASE_DIR / 'media'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://192.168.29.209:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://192.168.29.209:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
@@ -145,6 +148,9 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Frontend URL (encodes this address in machine QR codes)
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://192.168.29.209:5173')
 
 
 # Email
