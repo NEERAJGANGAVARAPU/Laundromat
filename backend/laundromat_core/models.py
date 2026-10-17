@@ -1,5 +1,7 @@
 import uuid
 from django.db import models
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.contrib.auth.models import User
 from django.utils import timezone
 
@@ -113,3 +115,42 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"Audit: {self.action} on {self.record_type} ({self.record_id}) by {self.user}"
+
+
+# ==========================================================
+# SIGNALS: Automatic Machine Status Synchronization
+# ==========================================================
+
+@receiver(post_delete, sender=LaundrySession)
+def on_session_deleted(sender, instance, **kwargs):
+    """
+    When a session is deleted (e.g. from Django Admin), immediately
+    check if the machine can be freed back to 'available'.
+    """
+    try:
+        machine = instance.machine
+        now = timezone.now()
+        has_other_active = machine.sessions.filter(status='active', expected_end_at__gt=now).exists()
+        if not has_other_active and machine.status == 'in_use':
+            machine.status = 'available'
+            machine.save(update_fields=['status'])
+    except Exception:
+        pass
+
+
+@receiver(post_save, sender=LaundrySession)
+def on_session_saved(sender, instance, **kwargs):
+    """
+    If a session's status is changed to 'completed' or 'cancelled',
+    immediately free the machine if no other active sessions exist.
+    """
+    if instance.status in ('completed', 'cancelled'):
+        try:
+            machine = instance.machine
+            now = timezone.now()
+            has_other_active = machine.sessions.filter(status='active', expected_end_at__gt=now).exists()
+            if not has_other_active and machine.status == 'in_use':
+                machine.status = 'available'
+                machine.save(update_fields=['status'])
+        except Exception:
+            pass
