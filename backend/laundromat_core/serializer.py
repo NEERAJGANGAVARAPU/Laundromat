@@ -8,6 +8,7 @@ class MachineSerializer(serializers.ModelSerializer):
     is_available = serializers.SerializerMethodField()
     minutes_remaining = serializers.SerializerMethodField()
     active_session_id = serializers.SerializerMethodField()
+    expected_end_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Machine
@@ -21,6 +22,7 @@ class MachineSerializer(serializers.ModelSerializer):
             'is_available',
             'minutes_remaining',
             'active_session_id',
+            'expected_end_at',
             'created_at',
         ]
 
@@ -67,3 +69,35 @@ class MachineSerializer(serializers.ModelSerializer):
         """
         active_session = self.get_active_session(obj)
         return str(active_session.id) if active_session else None
+
+    def get_expected_end_at(self, obj):
+        """
+        Returns the expected completion ISO timestamp of the current active session.
+        """
+        active_session = self.get_active_session(obj)
+        return active_session.expected_end_at.isoformat() if active_session else None
+
+class LaundrySessionSerializer(serializers.ModelSerializer):
+    """
+    Translates LaundrySession records to and from JSON.
+    """
+    machine_code = serializers.CharField(source='machine.machine_code', read_only=True)
+    machine_type = serializers.CharField(source='machine.machine_type', read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = LaundrySession
+        fields = [
+            'id',
+            'machine_code',
+            'machine_type',
+            'customer_email',
+            'duration_minutes',
+            'started_at',
+            'expected_end_at',
+            'completed_at',
+            'status',
+            'is_expired',
+            'created_at',
+        ]
+        read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'created_at']

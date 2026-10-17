@@ -37,7 +37,7 @@ class Machine(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.machine_code} ({self.get_machine_type_display()}) - {self.status}"
+        return f"{self.machine_code} ({self.get_machine_type_display()})"
 
 
 class LaundrySession(models.Model):

@@ -41,10 +41,20 @@ export default function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [notifPermission, setNotifPermission] = useState('default');
   const [acknowledgedHeadBack, setAcknowledgedHeadBack] = useState(false);
+  const [isBooking, setIsBooking] = useState(false);
+  const [bookingError, setBookingError] = useState(null);
 
   // Try fetching machines from Django API on mount
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/machines/')
+    // Dynamic API URL: uses the same IP/hostname as the browser (works on both laptop and phone!)
+    const apiHost = window.location.hostname || '127.0.0.1';
+    const apiUrl = `http://${apiHost}:8000/api/machines/`;
+
+    // 1. Read the ?machine= query parameter from the QR code link (e.g. ?machine=W-1)
+    const urlParams = new URLSearchParams(window.location.search);
+    const scannedCode = urlParams.get('machine');
+
+    fetch(apiUrl)
       .then((res) => {
         if (!res.ok) throw new Error('API error');
         return res.json();
@@ -53,12 +63,61 @@ export default function App() {
         if (Array.isArray(data) && data.length > 0) {
           setAvailableMachines(data);
           setBackendConnected(true);
+
+          // 2. Determine target machine (from URL param or stored session)
+          const targetCode = scannedCode || localStorage.getItem('active_session_code');
+          let matched = null;
+
+          if (targetCode) {
+            matched = data.find(
+              (m) => m.machine_code.toLowerCase() === targetCode.toLowerCase()
+            );
+          }
+
+          if (matched) {
+            setMachineCode(matched.machine_code);
+            setMachineType(matched.machine_type);
+
+            // REFRESH RESILIENCE: If machine is currently in use with an active session, resume countdown!
+            if (matched.expected_end_at) {
+              const endMs = new Date(matched.expected_end_at).getTime();
+              const nowMs = Date.now();
+              const remainingSecs = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+
+              if (remainingSecs > 0) {
+                const estDuration = matched.minutes_remaining || Math.ceil(remainingSecs / 60);
+                setDuration(estDuration);
+                setTotalSeconds(Math.max(remainingSecs, estDuration * 60));
+                setSecondsRemaining(remainingSecs);
+                setIsRunning(true);
+                setStep(remainingSecs <= 300 ? 4 : 3);
+                return;
+              } else if (matched.status === 'in_use') {
+                // Completed
+                setSecondsRemaining(0);
+                setIsRunning(false);
+                setStep(4);
+                return;
+              }
+            }
+            return;
+          }
+
+          // Fallback to first washer if no valid machine scanned
           const firstWasher = data.find((m) => m.machine_type === 'washer');
-          if (firstWasher) setMachineCode(firstWasher.machine_code);
+          if (firstWasher) {
+            setMachineCode(firstWasher.machine_code);
+            setMachineType('washer');
+          }
         }
       })
-      .catch(() => {
-        // Graceful fallback to default mock machine
+      .catch((err) => {
+        console.warn('Backend fetch error:', err);
+        // If query param exists even without backend, display it
+        if (scannedCode) {
+          setMachineCode(scannedCode);
+          if (scannedCode.toUpperCase().startsWith('D')) setMachineType('dryer');
+        }
         setBackendConnected(false);
       });
 
@@ -135,16 +194,62 @@ export default function App() {
     }
   };
 
-  const handleStartTimer = () => {
-    const secs = duration * 60;
-    setTotalSeconds(secs);
-    setSecondsRemaining(secs);
-    setIsRunning(true);
-    setAcknowledgedHeadBack(false);
-    if (secs <= 300) {
-      setStep(4);
-    } else {
-      setStep(3);
+  const handleStartTimer = async () => {
+    setIsBooking(true);
+    setBookingError(null);
+
+    // Dynamic API URL that works on both laptop and mobile phone!
+    const apiHost = window.location.hostname || '127.0.0.1';
+    const apiUrl = `http://${apiHost}:8000/api/sessions/`;
+
+    // Ensure typed duration is used even if user didn't click "Save"
+    let finalDuration = duration;
+    if (isEditingDuration && customInput) {
+      const parsed = parseInt(customInput, 10);
+      if (!isNaN(parsed) && parsed > 0 && parsed <= 180) {
+        finalDuration = parsed;
+        setDuration(parsed);
+      }
+    }
+
+    try {
+      // 1. Send reservation request to Django backend
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machine_code: machineCode,
+          customer_email: email,
+          duration_minutes: finalDuration,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to start session');
+      }
+
+      console.log('✅ Session created in Django database:', data);
+      localStorage.setItem('active_session_code', machineCode);
+
+      // 2. Start the live countdown timer from server duration
+      const secs = finalDuration * 60;
+      setTotalSeconds(secs);
+      setSecondsRemaining(secs);
+      setIsRunning(true);
+      setAcknowledgedHeadBack(false);
+
+      if (secs <= 300) {
+        setStep(4);
+      } else {
+        setStep(3);
+      }
+    } catch (err) {
+      alert(`Reservation Failed: ${err.message}`);
+      setBookingError(err.message);
+    } finally {
+      setIsBooking(false);
     }
   };
 
@@ -286,14 +391,17 @@ export default function App() {
               </div>
 
               {/* Connected machine info if backend available */}
-              {backendConnected && availableMachines.length > 0 && (
-                <div className="backend-machines-bar">
-                  <span className="api-dot" />
+              <div className="backend-machines-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="api-dot" style={{ backgroundColor: backendConnected ? '#10B981' : '#F59E0B' }} />
                   <span>
-                    Linked to Django API: Machine {machineCode} ({availableMachines.length} machines synced)
+                    {backendConnected ? 'Connected to Django' : 'Local Mode'}: <strong>Machine {machineCode}</strong> ({machineType === 'washer' ? 'Washing Machine' : 'Dryer'})
                   </span>
                 </div>
-              )}
+                <span style={{ fontSize: '12px', opacity: 0.8, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '12px' }}>
+                  Scanned via QR
+                </span>
+              </div>
 
               {/* Form Input: Name */}
               <div className="input-group">
@@ -403,7 +511,13 @@ export default function App() {
                       type="number"
                       className="custom-input-box"
                       value={customInput}
-                      onChange={(e) => setCustomInput(e.target.value)}
+                      onChange={(e) => {
+                        setCustomInput(e.target.value);
+                        const parsed = parseInt(e.target.value, 10);
+                        if (!isNaN(parsed) && parsed > 0 && parsed <= 180) {
+                          setDuration(parsed);
+                        }
+                      }}
                       min="1"
                       max="180"
                       autoFocus
@@ -453,9 +567,16 @@ export default function App() {
               )}
             </div>
 
+            {/* Error banner if reservation failed */}
+            {bookingError && (
+              <div style={{ color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px', marginBottom: '12px', fontSize: '14px' }}>
+                ⚠️ {bookingError}
+              </div>
+            )}
+
             {/* Start Timer Button */}
-            <button className="primary-btn navy-btn" onClick={handleStartTimer}>
-              <span>Start my {duration}-minute timer</span>
+            <button className="primary-btn navy-btn" onClick={handleStartTimer} disabled={isBooking}>
+              <span>{isBooking ? 'Reserving machine...' : `Start my ${duration}-minute timer`}</span>
               <Play size={18} fill="currentColor" />
             </button>
             <p className="sub-button-hint">Start your machine first. This timer won't control it.</p>
