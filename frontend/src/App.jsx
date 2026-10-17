@@ -121,7 +121,7 @@ export default function App() {
   const triggerNotification = (title, body) => {
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(title, { body, icon: '/favicon.svg' });
+        new Notification(title, { body, icon: '/favicon.png' });
       } catch (err) {
         console.log(err);
       }
@@ -194,21 +194,7 @@ export default function App() {
         <header className="brand-header">
           <div className="logo-group" onClick={() => setStep(1)} style={{ cursor: 'pointer' }}>
             <div className="brand-icon">
-              <svg viewBox="0 0 32 32" fill="none" className="wave-svg">
-                <circle cx="16" cy="16" r="14.5" stroke="#2558EA" strokeWidth="2.5" />
-                <path
-                  d="M9 13.5C11.5 10.5 13.5 10.5 16 13.5C18.5 16.5 20.5 16.5 23 13.5"
-                  stroke="#2558EA"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M9 18.5C11.5 15.5 13.5 15.5 16 18.5C18.5 21.5 20.5 21.5 23 18.5"
-                  stroke="#2558EA"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <img src="/favicon.png" alt="Spin & Stay" className="brand-img" />
             </div>
             <h1 className="brand-title">Spin &amp; Stay</h1>
           </div>
