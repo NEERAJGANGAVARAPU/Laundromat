@@ -267,20 +267,22 @@ export default function CustomerView() {
 
   const handleCancelTimer = async () => {
     setIsRunning(false);
+    setSecondsRemaining(0);
     setStep(2);
 
-    if (activeSessionId) {
+    const sessId = activeSessionId || localStorage.getItem('active_session_id');
+    if (sessId) {
       try {
-        await fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/cancel/`, {
+        await fetch(`http://${apiHost}:8000/api/sessions/${sessId}/cancel/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });
-        localStorage.removeItem('active_session_id');
-        localStorage.removeItem('active_session_code');
-        setActiveSessionId(null);
       } catch (err) {
         console.warn('Backend cancel error:', err);
       }
+      localStorage.removeItem('active_session_id');
+      localStorage.removeItem('active_session_code');
+      setActiveSessionId(null);
     }
   };
 
@@ -746,14 +748,20 @@ export default function CustomerView() {
             </button>
             <p className="sub-button-hint">Your countdown continues until the wash ends.</p>
 
+            {/* Cancel Button */}
+            <button className="cancel-timer-btn" onClick={handleCancelTimer}>
+              Cancel timer
+            </button>
+
             {/* Reset / Start another session */}
             <button
               className="cancel-timer-btn"
-              style={{ marginTop: '20px' }}
+              style={{ marginTop: '16px', opacity: 0.8 }}
               onClick={async () => {
-                if (activeSessionId) {
+                const sessId = activeSessionId || localStorage.getItem('active_session_id');
+                if (sessId) {
                   try {
-                    await fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/complete/`, {
+                    await fetch(`http://${apiHost}:8000/api/sessions/${sessId}/complete/`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                     });
@@ -763,6 +771,7 @@ export default function CustomerView() {
                   setActiveSessionId(null);
                 }
                 setIsRunning(false);
+                setSecondsRemaining(0);
                 setStep(1);
               }}
             >
