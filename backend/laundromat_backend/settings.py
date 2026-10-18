@@ -126,15 +126,8 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # CORS (Cross-Origin Resource Sharing)
-# Allows our React frontend on port 5173 or 3000 to call Django APIs
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://192.168.29.209:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://192.168.29.209:3000",
-]
+# Allows our React frontend on any IP or port (5173, 3000, mobile devices) to call Django APIs
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 #Django REST Framework configuration

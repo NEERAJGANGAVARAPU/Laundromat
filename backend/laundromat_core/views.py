@@ -1,15 +1,35 @@
+import socket
 from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
 
 from .models import Machine, LaundrySession
 from .serializer import MachineSerializer, LaundrySessionSerializer
 from .qr_utils import generate_qr_image
 from .services import sync_expired_sessions
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def network_ip_view(request):
+    """
+    GET /api/network-ip/
+    Dynamically detects the computer's current Wi-Fi/LAN IP address.
+    Never needs hardcoding, works across any Wi-Fi or hotspot automatically!
+    """
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('8.8.8.8', 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = '127.0.0.1'
+    return Response({'ip': ip, 'hostname': socket.gethostname()})
 
 
 class MachineViewSet(viewsets.ModelViewSet):

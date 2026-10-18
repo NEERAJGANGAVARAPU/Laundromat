@@ -50,13 +50,21 @@ export default function CustomerView() {
   // Dynamic API host (works on laptop 127.0.0.1 and mobile Wi-Fi)
   const apiHost = window.location.hostname || '127.0.0.1';
 
+  // Resilient API Fetch (tries relative Vite proxy first, then direct Django port 8000)
+  const apiFetch = async (endpoint, options = {}) => {
+    try {
+      const res = await fetch(endpoint, options);
+      if (res && res.ok) return res;
+    } catch (e) {}
+    return fetch(`http://${apiHost}:8000${endpoint}`, options);
+  };
+
   // Fetch machines and handle QR code parameter / refresh resilience
   useEffect(() => {
-    const apiUrl = `http://${apiHost}:8000/api/machines/`;
     const urlParams = new URLSearchParams(window.location.search);
     const scannedCode = urlParams.get('machine');
 
-    fetch(apiUrl)
+    apiFetch('/api/machines/')
       .then((res) => {
         if (!res.ok) throw new Error('API error');
         return res.json();
@@ -150,7 +158,7 @@ export default function CustomerView() {
 
             // Notify backend that session is complete to free the machine
             if (activeSessionId) {
-              fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/complete/`, {
+              apiFetch(`/api/sessions/${activeSessionId}/complete/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
               }).catch((err) => console.warn('Complete session error:', err));
@@ -206,8 +214,6 @@ export default function CustomerView() {
     setIsBooking(true);
     setBookingError(null);
 
-    const apiUrl = `http://${apiHost}:8000/api/sessions/`;
-
     // Ensure typed duration is used
     let finalDuration = duration;
     if (isEditingDuration && customInput) {
@@ -220,7 +226,7 @@ export default function CustomerView() {
 
     try {
       // 1. Send atomic reservation request to Django backend
-      const res = await fetch(apiUrl, {
+      const res = await apiFetch('/api/sessions/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -273,7 +279,7 @@ export default function CustomerView() {
     const sessId = activeSessionId || localStorage.getItem('active_session_id');
     if (sessId) {
       try {
-        await fetch(`http://${apiHost}:8000/api/sessions/${sessId}/cancel/`, {
+        await apiFetch(`/api/sessions/${sessId}/cancel/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         });

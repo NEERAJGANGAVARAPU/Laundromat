@@ -74,11 +74,34 @@ export default function OwnerDashboard() {
 
   // Dynamic API host
   const apiHost = window.location.hostname || '127.0.0.1';
+  const [detectedLanIp, setDetectedLanIp] = useState('');
+
+  // Auto-detect active network IP from Django
+  useEffect(() => {
+    const fetchIp = async () => {
+      try {
+        let res = await fetch('/api/network-ip/').catch(() => null);
+        if (!res || !res.ok) {
+          res = await fetch(`http://${apiHost}:8000/api/network-ip/`);
+        }
+        if (res.ok) {
+          const data = await res.json();
+          if (data.ip) setDetectedLanIp(data.ip);
+        }
+      } catch (e) {
+        console.warn('Network IP detection error:', e);
+      }
+    };
+    fetchIp();
+  }, [apiHost]);
 
   // Fetch live machines from Django backend
   const fetchBackendMachines = async () => {
     try {
-      const res = await fetch(`http://${apiHost}:8000/api/machines/`);
+      let res = await fetch('/api/machines/').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/machines/`);
+      }
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -105,7 +128,10 @@ export default function OwnerDashboard() {
   // Fetch live sessions from Django backend
   const fetchBackendSessions = async () => {
     try {
-      const res = await fetch(`http://${apiHost}:8000/api/sessions/`);
+      let res = await fetch('/api/sessions/').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/sessions/`);
+      }
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -166,9 +192,9 @@ export default function OwnerDashboard() {
   useEffect(() => {
     const target = machines.find((m) => m.code === selectedQrMachine) || machines[0];
     if (target) {
-      // Use local Wi-Fi IP so phones scanning from Wi-Fi can open the page directly
+      // Automatically use detected Wi-Fi IP so phones scanning from Wi-Fi connect instantly on any network
       const host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-        ? '192.168.29.209'
+        ? (detectedLanIp || window.location.hostname)
         : window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
       const checkinUrl = `http://${host}${port}/?machine=${target.code}`;
@@ -184,7 +210,7 @@ export default function OwnerDashboard() {
         .then((url) => setQrDataUrl(url))
         .catch((err) => console.error(err));
     }
-  }, [selectedQrMachine, machines]);
+  }, [selectedQrMachine, machines, detectedLanIp]);
 
   // Logout handler
   const handleSignOut = () => {
