@@ -42,14 +42,6 @@ const INITIAL_MACHINES = [
   { id: 'D-04', code: 'D-04', type: 'dryer', status: 'available', timeRemaining: 0, customer: null, service: 'Dry', note: 'Ready for a load' }
 ];
 
-// Initial customer sessions
-const INITIAL_CUSTOMERS = [
-  { id: 1, name: 'Alex Morgan', initials: 'AM', email: 'a•••@example.com', realEmail: 'alex.morgan@example.com', phone: '••• ••• 0128', realPhone: '(415) 555-0128', machine: 'W-01', service: 'Wash', timeRemaining: '18 min remaining', revealed: false },
-  { id: 2, name: 'Priya Shah', initials: 'PS', email: 'p•••@example.com', realEmail: 'priya.shah@example.com', phone: '••• ••• 0142', realPhone: '(415) 555-0142', machine: 'W-02', service: 'Wash', timeRemaining: '07 min remaining', revealed: false },
-  { id: 3, name: 'Sam Rivera', initials: 'SR', email: 's•••@example.com', realEmail: 'sam.rivera@example.com', phone: '••• ••• 0196', realPhone: '(415) 555-0196', machine: 'D-01', service: 'Dry', timeRemaining: '12 min remaining', revealed: false },
-  { id: 4, name: 'Jamie Chen', initials: 'JC', email: 'j•••@example.com', realEmail: 'jamie.chen@example.com', phone: '••• ••• 0175', realPhone: '(415) 555-0175', machine: 'D-02', service: 'Dry', timeRemaining: '24 min remaining', revealed: false },
-];
-
 export default function OwnerDashboard() {
   const navigate = useNavigate();
 
@@ -141,7 +133,18 @@ export default function OwnerDashboard() {
             revealed: false
           };
         });
-        setCustomers(mapped);
+
+        // Preserve revealed toggles across background poll updates
+        setCustomers((prev) => {
+          const revealedMap = {};
+          prev.forEach((c) => {
+            if (c.revealed) revealedMap[c.id] = true;
+          });
+          return mapped.map((item) => ({
+            ...item,
+            revealed: !!revealedMap[item.id]
+          }));
+        });
       }
     } catch (err) {
       console.warn('Could not load sessions from Django:', err);

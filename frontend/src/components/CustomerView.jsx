@@ -421,7 +421,7 @@ export default function CustomerView() {
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(415) 555-0128"
+                    placeholder="e.g. +1 (555) 000-0000"
                   />
                 </div>
                 <span className="helper-note">Include your country code if you're visiting from abroad.</span>
