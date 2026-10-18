@@ -225,7 +225,9 @@ export default function CustomerView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           machine_code: machineCode,
+          customer_name: name || '',
           customer_email: email || 'customer@laundromat.local',
+          customer_phone: phone || '',
           duration_minutes: finalDuration,
         }),
       });

@@ -77,6 +77,8 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
         # 1. Extract inputs from customer form
         machine_code = request.data.get('machine_code')
         customer_email = request.data.get('customer_email')
+        customer_name = request.data.get('customer_name', '').strip()
+        customer_phone = request.data.get('customer_phone', '').strip()
         duration_minutes = request.data.get('duration_minutes')
 
         # 2. Basic input validations
@@ -144,7 +146,9 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             # F. Save the LaundrySession in the database
             session = LaundrySession.objects.create(
                 machine=machine,
+                customer_name=customer_name,
                 customer_email=customer_email.strip().lower(),
+                customer_phone=customer_phone,
                 duration_minutes=duration_minutes,
                 started_at=started_at,
                 expected_end_at=expected_end_at,

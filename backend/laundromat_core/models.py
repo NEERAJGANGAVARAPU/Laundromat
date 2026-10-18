@@ -58,7 +58,9 @@ class LaundrySession(models.Model):
     # CRITICAL SAFEGUARD: on_delete=models.PROTECT prevents deleting a machine if it has past sessions!
     machine = models.ForeignKey(Machine, on_delete=models.PROTECT, related_name='sessions')
     
+    customer_name = models.CharField(max_length=100, blank=True, default='')
     customer_email = models.EmailField()
+    customer_phone = models.CharField(max_length=30, blank=True, default='')
     duration_minutes = models.PositiveIntegerField()
     
     started_at = models.DateTimeField(default=timezone.now)

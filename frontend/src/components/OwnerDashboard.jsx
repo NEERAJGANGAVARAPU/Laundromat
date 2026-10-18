@@ -120,14 +120,20 @@ export default function OwnerDashboard() {
         const mapped = data.map((s) => {
           const emailParts = s.customer_email.split('@');
           const maskedEmail = emailParts[0].slice(0, 1) + '•••@' + (emailParts[1] || 'example.com');
+          const realPhone = s.customer_phone || 'Not provided';
+          const maskedPhone = s.customer_phone
+            ? (s.customer_phone.length > 4 ? `••• ••• ${s.customer_phone.slice(-4)}` : s.customer_phone)
+            : 'Not provided';
+          const displayName = s.customer_name || s.customer_email.split('@')[0];
+
           return {
             id: s.id,
-            name: s.customer_email.split('@')[0],
-            initials: s.customer_email.slice(0, 2).toUpperCase(),
+            name: displayName,
+            initials: displayName.slice(0, 2).toUpperCase(),
             email: maskedEmail,
             realEmail: s.customer_email,
-            phone: '••• ••• 0128',
-            realPhone: '(415) 555-0128',
+            phone: maskedPhone,
+            realPhone: realPhone,
             machine: s.machine_code,
             service: s.machine_type === 'dryer' ? 'Dry' : 'Wash',
             timeRemaining: s.status === 'active' ? 'Active in progress' : s.status,
