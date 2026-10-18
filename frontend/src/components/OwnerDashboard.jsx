@@ -847,7 +847,7 @@ export default function OwnerDashboard() {
               <div className="qr-text-info">
                 <span className="qr-dest-label">Customer check-in destination:</span>
                 <h4 className="qr-url-text" style={{ wordBreak: 'break-all' }}>
-                  {`http://${(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '192.168.29.209' : window.location.hostname}:${window.location.port || '5173'}/?machine=${selectedMachineObj?.code}`}
+                  {`http://${(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? (detectedLanIp || window.location.hostname) : window.location.hostname}:${window.location.port || '5173'}/?machine=${selectedMachineObj?.code}`}
                 </h4>
                 <p className="qr-instruction-text">
                   Customers scan this physical QR label with their phone camera to instantly start a session on {selectedMachineObj?.code}.
