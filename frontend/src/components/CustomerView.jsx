@@ -726,16 +726,10 @@ export default function CustomerView() {
           </main>
         )}
 
-        {/* Global App Footer with Owner portal link */}
+        {/* Global App Footer */}
         <footer className="app-footer">
           <span className="footer-slogan">A little less waiting. A little more you.</span>
-          <div className="footer-links-group" style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <a href="#help" className="footer-help-link">Need help?</a>
-            <span style={{ opacity: 0.4 }}>•</span>
-            <Link to="/owner/login" className="footer-help-link" style={{ fontWeight: 600, color: '#2558EA' }}>
-              Owner portal
-            </Link>
-          </div>
+          <a href="#help" className="footer-help-link">Need help?</a>
         </footer>
       </div>
     </div>

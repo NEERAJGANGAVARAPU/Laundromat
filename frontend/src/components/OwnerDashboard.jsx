@@ -92,7 +92,13 @@ export default function OwnerDashboard() {
   useEffect(() => {
     const target = machines.find((m) => m.code === selectedQrMachine) || machines[0];
     if (target) {
-      const checkinUrl = `${window.location.origin}/?machine=${target.code}`;
+      // Use local Wi-Fi IP so phones scanning from Wi-Fi can open the page directly
+      const host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? '192.168.29.209'
+        : window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const checkinUrl = `http://${host}${port}/?machine=${target.code}`;
+
       QRCode.toDataURL(checkinUrl, {
         width: 260,
         margin: 2,
@@ -753,8 +759,8 @@ export default function OwnerDashboard() {
               {/* QR Info */}
               <div className="qr-text-info">
                 <span className="qr-dest-label">Customer check-in destination:</span>
-                <h4 className="qr-url-text">
-                  spinandstay.app/checkin/{selectedMachineObj?.code}
+                <h4 className="qr-url-text" style={{ wordBreak: 'break-all' }}>
+                  {`http://${(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? '192.168.29.209' : window.location.hostname}:${window.location.port || '5173'}/?machine=${selectedMachineObj?.code}`}
                 </h4>
                 <p className="qr-instruction-text">
                   Customers scan this physical QR label with their phone camera to instantly start a session on {selectedMachineObj?.code}.
