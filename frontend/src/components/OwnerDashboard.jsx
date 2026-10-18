@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import QRCode from 'qrcode';
@@ -55,14 +56,10 @@ export default function OwnerDashboard() {
   // Navigation tab in sidebar
   const [activeNav, setActiveNav] = useState('overview');
 
-  // Machines state
-  const [machines, setMachines] = useState(() => {
-    const saved = localStorage.getItem('spin_machines_data');
-    return saved ? JSON.parse(saved) : INITIAL_MACHINES;
-  });
-
-  // Customers state
-  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
+  // Machines state (fetched live from Django API)
+  const [machines, setMachines] = useState([]);
+  // Customers state (fetched live from Django API)
+  const [customers, setCustomers] = useState([]);
 
   // Filters
   const [typeFilter, setTypeFilter] = useState('all'); // 'all', 'washer', 'dryer'
@@ -70,7 +67,7 @@ export default function OwnerDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
 
   // QR Code Generation
-  const [selectedQrMachine, setSelectedQrMachine] = useState('W-03');
+  const [selectedQrMachine, setSelectedQrMachine] = useState('W-1');
   const [qrDataUrl, setQrDataUrl] = useState('');
 
   // Add Machine Modal
@@ -83,10 +80,78 @@ export default function OwnerDashboard() {
   // Selected Machine Details Modal
   const [selectedDetailMachine, setSelectedDetailMachine] = useState(null);
 
-  // Sync machines to localStorage
+  // Dynamic API host
+  const apiHost = window.location.hostname || '127.0.0.1';
+
+  // Fetch live machines from Django backend
+  const fetchBackendMachines = async () => {
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/machines/`);
+      if (!res.ok) throw new Error('API failed');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const mapped = data.map((m) => ({
+          id: m.machine_code,
+          code: m.machine_code,
+          type: m.machine_type,
+          status: m.status === 'in_use' ? 'occupied' : m.status,
+          timeRemaining: m.minutes_remaining || 0,
+          customer: m.status === 'in_use' ? 'Wash in progress' : null,
+          service: m.machine_type === 'washer' ? 'Wash' : 'Dry',
+          note: m.status === 'maintenance' ? 'Under inspection / maintenance' : `${m.machine_type === 'washer' ? 'Washer' : 'Dryer'} ready for use`
+        }));
+        setMachines(mapped);
+        if (mapped.length > 0 && !selectedQrMachine) {
+          setSelectedQrMachine(mapped[0].code);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load machines from Django:', err);
+    }
+  };
+
+  // Fetch live sessions from Django backend
+  const fetchBackendSessions = async () => {
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/sessions/`);
+      if (!res.ok) throw new Error('API failed');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const mapped = data.map((s) => {
+          const emailParts = s.customer_email.split('@');
+          const maskedEmail = emailParts[0].slice(0, 1) + '•••@' + (emailParts[1] || 'example.com');
+          return {
+            id: s.id,
+            name: s.customer_email.split('@')[0],
+            initials: s.customer_email.slice(0, 2).toUpperCase(),
+            email: maskedEmail,
+            realEmail: s.customer_email,
+            phone: '••• ••• 0128',
+            realPhone: '(415) 555-0128',
+            machine: s.machine_code,
+            service: s.machine_type === 'dryer' ? 'Dry' : 'Wash',
+            timeRemaining: s.status === 'active' ? 'Active in progress' : s.status,
+            status: s.status,
+            revealed: false
+          };
+        });
+        setCustomers(mapped);
+      }
+    } catch (err) {
+      console.warn('Could not load sessions from Django:', err);
+    }
+  };
+
+  // Poll live data on mount
   useEffect(() => {
-    localStorage.setItem('spin_machines_data', JSON.stringify(machines));
-  }, [machines]);
+    fetchBackendMachines();
+    fetchBackendSessions();
+    const interval = setInterval(() => {
+      fetchBackendMachines();
+      fetchBackendSessions();
+    }, 4000); // 4-second real-time poll
+    return () => clearInterval(interval);
+  }, [apiHost]);
 
   // Generate QR Code for selected machine
   useEffect(() => {
@@ -112,83 +177,72 @@ export default function OwnerDashboard() {
     }
   }, [selectedQrMachine, machines]);
 
-  // Live timer tick for occupied machines
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMachines((prev) =>
-        prev.map((m) => {
-          if (m.status === 'occupied' && m.timeRemaining > 0) {
-            return { ...m, timeRemaining: m.timeRemaining - 1 };
-          }
-          return m;
-        })
-      );
-    }, 60000); // decrement each minute
-    return () => clearInterval(interval);
-  }, []);
-
   // Logout handler
   const handleSignOut = () => {
     localStorage.removeItem('spin_owner_auth');
     navigate('/owner/login');
   };
 
-  // Add Machine handler
-  const handleAddMachine = (e) => {
+  // Add Machine handler (Calls Django POST /api/machines/)
+  const handleAddMachine = async (e) => {
     e.preventDefault();
     if (!newCode.trim()) return;
     const formattedCode = newCode.trim().toUpperCase();
 
-    // Check duplicate
-    if (machines.some((m) => m.code === formattedCode)) {
-      alert(`Machine with code ${formattedCode} already exists!`);
-      return;
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/machines/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machine_code: formattedCode,
+          machine_type: newType,
+          status: newStatus
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.machine_code?.[0] || data.error || 'Failed to create machine');
+
+      setSelectedQrMachine(formattedCode);
+      setIsAddModalOpen(false);
+      setNewCode('');
+      setNewNote('');
+      fetchBackendMachines();
+    } catch (err) {
+      alert(`Error creating machine: ${err.message}`);
     }
-
-    const created = {
-      id: formattedCode,
-      code: formattedCode,
-      type: newType,
-      status: newStatus,
-      timeRemaining: 0,
-      customer: null,
-      service: newType === 'washer' ? 'Wash' : 'Dry',
-      note: newNote || (newType === 'washer' ? 'Newly installed washing machine' : 'Newly installed dryer')
-    };
-
-    setMachines((prev) => [...prev, created]);
-    setSelectedQrMachine(formattedCode);
-    setIsAddModalOpen(false);
-    setNewCode('');
-    setNewNote('');
   };
 
-  // Toggle Maintenance handler
-  const handleToggleMaintenance = (machineCode) => {
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.code === machineCode) {
-          const nextStatus = m.status === 'maintenance' ? 'available' : 'maintenance';
-          return {
-            ...m,
-            status: nextStatus,
-            customer: null,
-            timeRemaining: 0,
-            note: nextStatus === 'maintenance' ? 'Under inspection / maintenance' : 'Ready for a load'
-          };
-        }
-        return m;
-      })
-    );
+  // Toggle Maintenance handler (Calls Django PATCH /api/machines/<code/ )
+  const handleToggleMaintenance = async (machineCode) => {
+    const current = machines.find((m) => m.code === machineCode);
+    const nextStatus = current?.status === 'maintenance' ? 'available' : 'maintenance';
+
+    try {
+      await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus })
+      });
+      fetchBackendMachines();
+    } catch (err) {
+      console.warn('Failed to toggle maintenance on backend:', err);
+    }
   };
 
-  // Remove Machine handler
-  const handleRemoveMachine = (machineCode) => {
-    if (window.confirm(`Are you sure you want to remove machine ${machineCode}?`)) {
-      setMachines((prev) => prev.filter((m) => m.code !== machineCode));
+  // Remove/Deactivate Machine handler (Calls Django DELETE /api/machines/<code/ )
+  const handleRemoveMachine = async (machineCode) => {
+    if (!window.confirm(`Are you sure you want to deactivate machine ${machineCode}?`)) return;
+
+    try {
+      await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
+        method: 'DELETE'
+      });
+      fetchBackendMachines();
       if (selectedQrMachine === machineCode) {
-        setSelectedQrMachine(machines[0]?.code || '');
+        setSelectedQrMachine(machines[0]?.code || 'W-1');
       }
+    } catch (err) {
+      console.warn('Failed to deactivate machine on backend:', err);
     }
   };
 
@@ -435,9 +489,8 @@ export default function OwnerDashboard() {
               {washers.map((w, i) => (
                 <div
                   key={w.code}
-                  className={`bar-chunk ${
-                    w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                  }`}
+                  className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                    }`}
                 />
               ))}
             </div>
@@ -457,9 +510,8 @@ export default function OwnerDashboard() {
               {dryers.map((d, i) => (
                 <div
                   key={d.code}
-                  className={`bar-chunk ${
-                    d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                  }`}
+                  className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                    }`}
                 />
               ))}
             </div>

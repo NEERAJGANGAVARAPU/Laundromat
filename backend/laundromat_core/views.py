@@ -12,11 +12,14 @@ from .qr_utils import generate_qr_image
 from .services import sync_expired_sessions
 
 
-class MachineViewSet(viewsets.ReadOnlyModelViewSet):
+class MachineViewSet(viewsets.ModelViewSet):
     """
-    API endpoint that allows machines to be viewed:
-    - GET /api/machines/          -> Returns a list of all active machines
-    - GET /api/machines/<machine_code>/ -> Returns details of a specific machine (e.g., W-1)
+    API endpoint for Machines:
+    - GET /api/machines/                -> Returns a list of all active machines
+    - POST /api/machines/               -> Owner can add a new machine
+    - GET /api/machines/<machine_code>/ -> Returns details of a specific machine (e.g. W-1)
+    - PATCH /api/machines/<machine_code>/ -> Owner can toggle status (e.g. maintenance)
+    - DELETE /api/machines/<machine_code>/ -> Safely deactivates machine without corrupting history
     """
     serializer_class = MachineSerializer
     lookup_field = 'machine_code'
@@ -25,6 +28,19 @@ class MachineViewSet(viewsets.ReadOnlyModelViewSet):
         # Automatically complete any expired sessions before returning machine data
         sync_expired_sessions()
         return Machine.objects.filter(is_active=True).order_by('machine_code')
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        Soft-deletion safeguard:
+        Never permanently delete machines with past sessions; archive them!
+        """
+        machine = self.get_object()
+        machine.is_active = False
+        machine.save(update_fields=['is_active'])
+        return Response(
+            {"message": f"Machine {machine.machine_code} deactivated successfully."},
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=True, methods=['get'], url_path='qr')
     def qr_code(self, request, machine_code=None):
@@ -138,5 +154,78 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             # G. Return the created session details with HTTP 201 Created!
             serializer = self.get_serializer(session)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'], url_path='active')
+    def active_session(self, request):
+        """
+        GET /api/sessions/active/?machine=W-1
+        Quickly check if a machine currently has an ongoing wash session.
+        """
+        machine_code = request.query_params.get('machine')
+        if not machine_code:
+            return Response(
+                {"error": "Query parameter 'machine' is required (e.g. ?machine=W-1)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        now = timezone.now()
+        session = LaundrySession.objects.filter(
+            machine__machine_code=machine_code,
+            status='active',
+            expected_end_at__gt=now
+        ).first()
+
+        if not session:
+            return Response({"active_session": None}, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(session)
+        return Response({"active_session": serializer.data}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='cancel')
+    def cancel_session(self, request, pk=None):
+        """
+        POST /api/sessions/<id>/cancel/
+        Safely cancels a running wash session early and immediately releases the machine.
+        """
+        session = self.get_object()
+        if session.status != 'active':
+            return Response(
+                {"error": f"Session cannot be cancelled because it is already {session.status}."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        session.status = 'cancelled'
+        session.completed_at = timezone.now()
+        session.save(update_fields=['status', 'completed_at'])
+
+        serializer = self.get_serializer(session)
+        return Response(
+            {
+                "message": f"Session cancelled successfully. Machine {session.machine.machine_code} is now available.",
+                "session": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @action(detail=True, methods=['post'], url_path='complete')
+    def complete_session(self, request, pk=None):
+        """
+        POST /api/sessions/<id>/complete/
+        Explicitly completes a session when the countdown reaches 00:00.
+        """
+        session = self.get_object()
+        if session.status == 'active':
+            session.status = 'completed'
+            session.completed_at = timezone.now()
+            session.save(update_fields=['status', 'completed_at'])
+
+        serializer = self.get_serializer(session)
+        return Response(
+            {
+                "message": f"Session completed. Machine {session.machine.machine_code} is now available.",
+                "session": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
 

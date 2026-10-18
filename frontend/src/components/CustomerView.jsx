@@ -45,6 +45,7 @@ export default function CustomerView() {
   const [acknowledgedHeadBack, setAcknowledgedHeadBack] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(() => localStorage.getItem('active_session_id') || null);
 
   // Dynamic API host (works on laptop 127.0.0.1 and mobile Wi-Fi)
   const apiHost = window.location.hostname || '127.0.0.1';
@@ -77,6 +78,11 @@ export default function CustomerView() {
           if (matched) {
             setMachineCode(matched.machine_code);
             setMachineType(matched.machine_type);
+
+            if (matched.active_session_id) {
+              setActiveSessionId(matched.active_session_id);
+              localStorage.setItem('active_session_id', matched.active_session_id);
+            }
 
             // REFRESH RESILIENCE: If machine has an active session, resume countdown!
             if (matched.expected_end_at) {
@@ -136,11 +142,19 @@ export default function CustomerView() {
             triggerNotification('Time to head back!', `${name || 'Alex'}, you have 5 minutes left on your wash.`);
             playChime();
           }
-          if (next <= 0) {
+            if (next <= 0) {
             clearInterval(timerId);
             setIsRunning(false);
             triggerNotification('Wash Complete!', `${name || 'Alex'}, your wash is finished.`);
             playChime();
+
+            // Notify backend that session is complete to free the machine
+            if (activeSessionId) {
+              fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/complete/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+              }).catch((err) => console.warn('Complete session error:', err));
+            }
             return 0;
           }
           return next;
@@ -150,7 +164,7 @@ export default function CustomerView() {
     return () => {
       if (timerId) clearInterval(timerId);
     };
-  }, [isRunning, secondsRemaining, step, name]);
+  }, [isRunning, secondsRemaining, step, name, activeSessionId, apiHost]);
 
   const playChime = () => {
     try {
@@ -224,6 +238,10 @@ export default function CustomerView() {
 
       console.log('✅ Session created in Django database:', data);
       localStorage.setItem('active_session_code', machineCode);
+      if (data.id) {
+        setActiveSessionId(data.id);
+        localStorage.setItem('active_session_id', data.id);
+      }
 
       // 2. Start the live countdown timer from server duration
       const secs = finalDuration * 60;
@@ -245,10 +263,25 @@ export default function CustomerView() {
     }
   };
 
-  const handleCancelTimer = () => {
+  const handleCancelTimer = async () => {
     setIsRunning(false);
     setStep(2);
+
+    if (activeSessionId) {
+      try {
+        await fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/cancel/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        localStorage.removeItem('active_session_id');
+        localStorage.removeItem('active_session_code');
+        setActiveSessionId(null);
+      } catch (err) {
+        console.warn('Backend cancel error:', err);
+      }
+    }
   };
+
 
   const handleQuickDuration = (min) => {
     setDuration(min);
@@ -715,7 +748,18 @@ export default function CustomerView() {
             <button
               className="cancel-timer-btn"
               style={{ marginTop: '20px' }}
-              onClick={() => {
+              onClick={async () => {
+                if (activeSessionId) {
+                  try {
+                    await fetch(`http://${apiHost}:8000/api/sessions/${activeSessionId}/complete/`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                    });
+                  } catch {}
+                  localStorage.removeItem('active_session_id');
+                  localStorage.removeItem('active_session_code');
+                  setActiveSessionId(null);
+                }
                 setIsRunning(false);
                 setStep(1);
               }}
