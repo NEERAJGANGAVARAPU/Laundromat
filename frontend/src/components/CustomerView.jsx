@@ -665,19 +665,26 @@ export default function CustomerView() {
           </main>
         )}
 
-        {/* ================= STEP 04: COLLECTION REMINDER (<= 5 MIN) ================= */}
+        {/* ================= STEP 04: COLLECTION REMINDER (<= 5 MIN) & COMPLETION ================= */}
         {step === 4 && (
           <main className="content-step">
-            <div className="step-tag">03 / TIME TO HEAD BACK</div>
+            <div className="step-tag">
+              {secondsRemaining > 0 ? '03 / TIME TO HEAD BACK' : '04 / WASH COMPLETED'}
+            </div>
             <h2 className="main-heading">
-              Nearly fresh.<br />
-              Nearly finished.
+              {secondsRemaining > 0 ? (
+                <>Nearly fresh.<br />Nearly finished.</>
+              ) : (
+                <>Clean & Fresh.<br />Ready to unload.</>
+              )}
             </h2>
             <p className="main-subtext">
-              {firstName}, your wash has 5 minutes left. Make your way back to collect your clothes.
+              {secondsRemaining > 0
+                ? `${firstName}, your wash has ${Math.ceil(secondsRemaining / 60)} minutes left. Make your way back to collect your clothes.`
+                : `${firstName}, your wash on machine ${machineCode} is complete! You can unload your clothes or start your next batch.`}
             </p>
 
-            {/* Circular Gauge in 5 minute reminder state */}
+            {/* Circular Gauge */}
             <div className="gauge-container">
               <svg className="gauge-svg" width="280" height="280" viewBox="0 0 300 300">
                 <circle
@@ -692,7 +699,7 @@ export default function CustomerView() {
                   cx="150"
                   cy="150"
                   r={gaugeRadius}
-                  className="gauge-progress-circle reminder-ring"
+                  className={`gauge-progress-circle ${secondsRemaining > 0 ? 'reminder-ring' : 'complete-ring'}`}
                   strokeWidth="16"
                   fill="none"
                   strokeDasharray={gaugeCircumference}
@@ -703,9 +710,13 @@ export default function CustomerView() {
               </svg>
 
               <div className="gauge-center-content">
-                <span className="gauge-status-label collection-active">COLLECTION REMINDER</span>
+                <span className={`gauge-status-label ${secondsRemaining > 0 ? 'collection-active' : 'complete-active'}`}>
+                  {secondsRemaining > 0 ? 'COLLECTION REMINDER' : 'CYCLE COMPLETE'}
+                </span>
                 <span className="gauge-timer-digits">{formatTime(secondsRemaining)}</span>
-                <span className="gauge-sublabel">minutes remaining</span>
+                <span className="gauge-sublabel">
+                  {secondsRemaining > 0 ? 'minutes remaining' : 'wash is done'}
+                </span>
               </div>
             </div>
 
@@ -716,11 +727,11 @@ export default function CustomerView() {
                 <span className="stat-val">{duration} minutes</span>
               </div>
               <div className="stat-col text-right">
-                <span className="stat-title">Wash ends</span>
+                <span className="stat-title">Wash status</span>
                 <span className="stat-val blue-highlight">
-                  {secondsRemaining <= 60
-                    ? `In ${secondsRemaining}s`
-                    : `In ${Math.ceil(secondsRemaining / 60)} minutes`}
+                  {secondsRemaining > 0
+                    ? (secondsRemaining <= 60 ? `In ${secondsRemaining}s` : `In ${Math.ceil(secondsRemaining / 60)} minutes`)
+                    : 'Completed'}
                 </span>
               </div>
             </div>
@@ -731,53 +742,56 @@ export default function CustomerView() {
                 <ShoppingBag size={24} className="bag-icon" />
               </div>
               <div className="bag-text-col">
-                <h4 className="bag-title">Bring your laundry bag along.</h4>
+                <h4 className="bag-title">
+                  {secondsRemaining > 0 ? 'Bring your laundry bag along.' : 'Ready for unload.'}
+                </h4>
                 <p className="bag-desc">
-                  Check your machine before unloading. This reminder follows your timer, not the machine.
+                  {secondsRemaining > 0
+                    ? 'Check your machine before unloading. This reminder follows your timer, not the machine.'
+                    : `Please unload machine ${machineCode} promptly so it is free for other users or your next batch.`}
                 </p>
               </div>
             </div>
 
-            {/* Acknowledged / On my way button */}
-            <button
-              className={`primary-btn navy-btn ${acknowledgedHeadBack ? 'btn-acknowledged' : ''}`}
-              onClick={() => setAcknowledgedHeadBack(true)}
-            >
-              <span>{acknowledgedHeadBack ? "Acknowledged! We're waiting" : "Got it, I'm on my way"}</span>
-              <Check size={20} />
-            </button>
-            <p className="sub-button-hint">Your countdown continues until the wash ends.</p>
+            {/* WHILE RUNNING: Show On My Way + Cancel Timer (Early cancellation only) */}
+            {secondsRemaining > 0 ? (
+              <>
+                <button
+                  className={`primary-btn navy-btn ${acknowledgedHeadBack ? 'btn-acknowledged' : ''}`}
+                  onClick={() => setAcknowledgedHeadBack(true)}
+                >
+                  <span>{acknowledgedHeadBack ? "Acknowledged! We're waiting" : "Got it, I'm on my way"}</span>
+                  <Check size={20} />
+                </button>
+                <p className="sub-button-hint">Your countdown continues until the wash ends.</p>
 
-            {/* Cancel Button */}
-            <button className="cancel-timer-btn" onClick={handleCancelTimer}>
-              Cancel timer
-            </button>
-
-            {/* Reset / Start another session */}
-            <button
-              className="cancel-timer-btn"
-              style={{ marginTop: '16px', opacity: 0.8 }}
-              onClick={async () => {
-                const sessId = activeSessionId || localStorage.getItem('active_session_id');
-                if (sessId) {
-                  try {
-                    await fetch(`http://${apiHost}:8000/api/sessions/${sessId}/complete/`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                    });
-                  } catch {}
-                  localStorage.removeItem('active_session_id');
-                  localStorage.removeItem('active_session_code');
-                  setActiveSessionId(null);
-                }
-                setIsRunning(false);
-                setSecondsRemaining(0);
-                setStep(1);
-              }}
-            >
-              <RotateCcw size={14} style={{ display: 'inline', marginRight: '6px' }} />
-              Start another wash
-            </button>
+                {/* Cancel Timer Button: ONLY early cancellation while active */}
+                <button className="cancel-timer-btn" onClick={handleCancelTimer}>
+                  Cancel timer
+                </button>
+              </>
+            ) : (
+              /* ONCE COMPLETED: Show Start Another Wash (for batch 2!) */
+              <>
+                <button
+                  className="primary-btn navy-btn"
+                  onClick={() => {
+                    localStorage.removeItem('active_session_id');
+                    localStorage.removeItem('active_session_code');
+                    setActiveSessionId(null);
+                    setIsRunning(false);
+                    setSecondsRemaining(0);
+                    setStep(2); // Go to setup screen to wash next batch!
+                  }}
+                >
+                  <RotateCcw size={18} style={{ display: 'inline', marginRight: '8px' }} />
+                  <span>Start another wash (Next batch)</span>
+                </button>
+                <p className="sub-button-hint">
+                  Your machine is unlocked. You can start your next batch or switch machines!
+                </p>
+              </>
+            )}
           </main>
         )}
 

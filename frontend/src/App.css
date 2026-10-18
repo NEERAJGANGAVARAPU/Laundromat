@@ -733,6 +733,10 @@
   stroke: #2558ea;
 }
 
+.gauge-progress-circle.complete-ring {
+  stroke: #10b981;
+}
+
 .gauge-center-content {
   position: relative;
   display: flex;
@@ -752,6 +756,10 @@
 
 .gauge-status-label.collection-active {
   color: #1d4ed8;
+}
+
+.gauge-status-label.complete-active {
+  color: #10b981;
 }
 
 .gauge-timer-digits {
