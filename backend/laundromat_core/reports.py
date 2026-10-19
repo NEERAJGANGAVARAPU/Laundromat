@@ -3,7 +3,7 @@ import csv
 from datetime import datetime
 from django.http import HttpResponse
 from django.utils import timezone
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, Q
 from .models import Machine, LaundrySession
 from .services import sync_expired_sessions
 
@@ -55,14 +55,21 @@ def get_day_wise_analytics(date_str=None):
     total_minutes = sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
 
     # Machine-wise breakdown for the selected period / day
-    machines = Machine.objects.filter(is_active=True).order_by('machine_code')
+    # We include all active machines + any removed/inactive machines that have sessions!
+    all_machines = Machine.objects.all().order_by('machine_code')
     machine_breakdown = []
+    seen_codes = set()
     
-    for m in machines:
-        m_sessions = sessions.filter(machine=m)
+    for m in all_machines:
+        m_sessions = sessions.filter(Q(machine=m) | Q(machine_code=m.machine_code))
         runs_count = m_sessions.count()
+        # If machine is inactive and has 0 sessions in this filtered period, skip it
+        if not m.is_active and runs_count == 0:
+            continue
+
         m_unique_people = m_sessions.values('customer_email').distinct().count()
         m_minutes = m_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        machine_status = m.status if m.is_active else 'removed'
 
         machine_breakdown.append({
             'code': m.machine_code,
@@ -70,7 +77,27 @@ def get_day_wise_analytics(date_str=None):
             'runs_count': runs_count,
             'unique_people_count': m_unique_people,
             'total_minutes': m_minutes,
-            'status': m.status
+            'status': machine_status
+        })
+        seen_codes.add(m.machine_code)
+
+    # In case there are historical sessions with a machine_code where the Machine object was purged
+    orphaned_codes = sessions.exclude(machine_code__in=seen_codes).values_list('machine_code', flat=True).distinct()
+    for code in orphaned_codes:
+        if not code:
+            continue
+        m_sessions = sessions.filter(machine_code=code)
+        runs_count = m_sessions.count()
+        m_unique_people = m_sessions.values('customer_email').distinct().count()
+        m_minutes = m_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
+        m_type = 'dryer' if code.upper().startswith('D') else 'washer'
+        machine_breakdown.append({
+            'code': code,
+            'type': m_type,
+            'runs_count': runs_count,
+            'unique_people_count': m_unique_people,
+            'total_minutes': m_minutes,
+            'status': 'removed'
         })
 
     # Sort machines by runs_count descending
@@ -141,10 +168,12 @@ def export_sessions_csv(date_str=None, status_filter=None, search_query=None):
     for s in sessions:
         local_started = format_dt(s.started_at)
         local_completed = format_dt(s.completed_at)
+        m_code = s.machine_code or (s.machine.machine_code if s.machine else '')
+        m_type = s.machine.machine_type if s.machine else ('dryer' if m_code.upper().startswith('D') else 'washer')
         writer.writerow([
             str(s.id),
-            s.machine.machine_code if s.machine else '',
-            s.machine.machine_type if s.machine else '',
+            m_code,
+            m_type,
             s.customer_name or 'Not specified',
             s.customer_email,
             s.customer_phone or 'Not provided',
@@ -335,10 +364,11 @@ def export_sessions_pdf(date_str=None, status_filter=None, search_query=None):
         status_color = '#10B981' if s.status == 'completed' else '#EF4444' if s.status == 'cancelled' else '#2558EA'
         status_html = f"<font color='{status_color}'><b>{s.status.upper()}</b></font>"
 
+        m_code = s.machine_code or (s.machine.machine_code if s.machine else '-')
         sess_data.append([
             Paragraph(s.customer_name or 'Walk-in Customer', table_text_style),
             Paragraph(contact_str, table_text_style),
-            Paragraph(s.machine.machine_code if s.machine else '-', table_text_style),
+            Paragraph(m_code, table_text_style),
             Paragraph(f"{s.duration_minutes} min", table_text_style),
             Paragraph(started_str, table_text_style),
             Paragraph(status_html, table_text_style),

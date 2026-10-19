@@ -55,8 +55,11 @@ class LaundrySession(models.Model):
     # UUID prevents guessing of session IDs in API URLs
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
-    # CRITICAL SAFEGUARD: on_delete=models.PROTECT prevents deleting a machine if it has past sessions!
-    machine = models.ForeignKey(Machine, on_delete=models.PROTECT, related_name='sessions')
+    # Direct machine_code on session table for permanent record keeping even if machine is removed/recreated
+    machine_code = models.CharField(max_length=20, blank=True, default='', db_index=True)
+    
+    # ForeignKey links to Machine, but SET_NULL ensures historical sessions remain intact if machine is decommissioned
+    machine = models.ForeignKey(Machine, on_delete=models.SET_NULL, null=True, blank=True, related_name='sessions')
     
     customer_name = models.CharField(max_length=100, blank=True, default='')
     customer_email = models.EmailField()
@@ -75,8 +78,19 @@ class LaundrySession(models.Model):
         """Helper function: Returns True if expected time has passed."""
         return timezone.now() >= self.expected_end_at
 
+    def save(self, *args, **kwargs):
+        # Guarantee machine_code is always persisted directly in the session table
+        if self.machine and not self.machine_code:
+            self.machine_code = self.machine.machine_code
+        elif not self.machine and self.machine_code:
+            m = Machine.objects.filter(machine_code=self.machine_code, is_active=True).first()
+            if m:
+                self.machine = m
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"Session on {self.machine.machine_code} for {self.customer_email} [{self.status}]"
+        code = self.machine_code or (self.machine.machine_code if self.machine else 'Unknown')
+        return f"Session on {code} for {self.customer_email} [{self.status}]"
 
 
 class Notification(models.Model):

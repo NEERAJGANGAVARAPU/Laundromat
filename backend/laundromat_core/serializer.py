@@ -81,9 +81,16 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
     """
     Translates LaundrySession records to and from JSON.
     """
-    machine_code = serializers.CharField(source='machine.machine_code', read_only=True)
-    machine_type = serializers.CharField(source='machine.machine_type', read_only=True)
+    machine_code = serializers.CharField(read_only=True)
+    machine_type = serializers.SerializerMethodField()
     is_expired = serializers.BooleanField(read_only=True)
+
+    def get_machine_type(self, obj):
+        if obj.machine:
+            return obj.machine.machine_type
+        if obj.machine_code and obj.machine_code.upper().startswith('D'):
+            return 'dryer'
+        return 'washer'
 
     class Meta:
         model = LaundrySession

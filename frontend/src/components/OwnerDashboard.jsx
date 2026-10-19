@@ -1230,7 +1230,7 @@ export default function OwnerDashboard() {
                             <span style={{ fontWeight: 600 }}>{m.total_minutes}</span> mins
                           </td>
                           <td>
-                            <span className={`status-chip ${m.status === 'available' ? 'chip-green' : m.status === 'in_use' ? 'chip-blue' : 'chip-orange'}`}>
+                            <span className={`status-chip ${m.status === 'available' ? 'chip-green' : m.status === 'in_use' ? 'chip-blue' : m.status === 'removed' ? 'chip-gray' : 'chip-orange'}`}>
                               • {m.status === 'in_use' ? 'occupied' : m.status}
                             </span>
                           </td>

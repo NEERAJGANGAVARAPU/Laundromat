@@ -49,16 +49,65 @@ class MachineViewSet(viewsets.ModelViewSet):
         sync_expired_sessions()
         return Machine.objects.filter(is_active=True).order_by('machine_code')
 
+    def create(self, request, *args, **kwargs):
+        """
+        POST /api/machines/
+        Allows Owner to add a new machine.
+        If a machine with this code was previously removed:
+        - If it still has historical sessions: Block reuse until sessions are deleted.
+        - If it has 0 sessions: Clean up the old removed record and allow creating the new machine!
+        """
+        raw_code = request.data.get('machine_code', '').strip().upper()
+        if not raw_code:
+            return Response({"error": "Machine code is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing = Machine.objects.filter(machine_code__iexact=raw_code).first()
+        if existing:
+            if existing.is_active:
+                return Response(
+                    {"error": f"Machine '{existing.machine_code}' already exists and is active."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            else:
+                session_count = existing.sessions.count()
+                if session_count > 0:
+                    return Response(
+                        {
+                            "error": f"Machine code '{existing.machine_code}' was previously removed but still has {session_count} customer session(s) in the database. Please delete those sessions in Reports first to reuse this code."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                else:
+                    # No sessions exist on this removed machine! Purge it so the code is completely free to reuse.
+                    existing.delete()
+
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        data['machine_code'] = raw_code
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def destroy(self, request, *args, **kwargs):
         """
-        Soft-deletion safeguard:
-        Never permanently delete machines with past sessions; archive them!
+        Safe deletion:
+        - If machine has NO past sessions: Hard delete immediately so code is immediately free.
+        - If machine has past sessions: Soft delete (is_active=False) to preserve historical integrity.
         """
         machine = self.get_object()
+        machine_code = machine.machine_code
+        if not machine.sessions.exists():
+            machine.delete()
+            return Response(
+                {"message": f"Machine {machine_code} deleted and code is now available for reuse."},
+                status=status.HTTP_200_OK
+            )
+
         machine.is_active = False
         machine.save(update_fields=['is_active'])
         return Response(
-            {"message": f"Machine {machine.machine_code} deactivated successfully."},
+            {"message": f"Machine {machine_code} removed. Historical sessions are preserved in Reports."},
             status=status.HTTP_200_OK
         )
 
@@ -284,14 +333,27 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
         """
         DELETE /api/sessions/<id>/
         Allows Owner to delete a session and safely releases the machine if the deleted session was active.
+        If the machine was previously removed and now has 0 remaining sessions, clean it up so the code can be reused!
         """
         session = self.get_object()
         machine = session.machine
+        machine_code = session.machine_code or (machine.machine_code if machine else None)
+
         if session.status == 'active' and machine:
             machine.status = 'available'
             machine.save(update_fields=['status'])
+
         session_id = str(session.id)
         session.delete()
+
+        # If the machine was removed and this was its last session, delete the inactive machine record!
+        if machine and not machine.is_active and machine.sessions.count() == 0:
+            machine.delete()
+        elif machine_code and not machine:
+            m = Machine.objects.filter(machine_code=machine_code, is_active=False).first()
+            if m and m.sessions.count() == 0:
+                m.delete()
+
         return Response(
             {"message": f"Session {session_id} successfully deleted."},
             status=status.HTTP_200_OK
