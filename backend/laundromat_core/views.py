@@ -92,22 +92,15 @@ class MachineViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """
         Safe deletion:
-        - If machine has NO past sessions: Hard delete immediately so code is immediately free.
-        - If machine has past sessions: Soft delete (is_active=False) to preserve historical integrity.
+        Always marks machine as inactive (is_active=False) so it is removed from the floor
+        view, but preserved in the Reports tab as 'removed'.
         """
         machine = self.get_object()
         machine_code = machine.machine_code
-        if not machine.sessions.exists():
-            machine.delete()
-            return Response(
-                {"message": f"Machine {machine_code} deleted and code is now available for reuse."},
-                status=status.HTTP_200_OK
-            )
-
         machine.is_active = False
         machine.save(update_fields=['is_active'])
         return Response(
-            {"message": f"Machine {machine_code} removed. Historical sessions are preserved in Reports."},
+            {"message": f"Machine {machine_code} removed. Preserved in Reports as removed."},
             status=status.HTTP_200_OK
         )
 
@@ -345,14 +338,6 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
 
         session_id = str(session.id)
         session.delete()
-
-        # If the machine was removed and this was its last session, delete the inactive machine record!
-        if machine and not machine.is_active and machine.sessions.count() == 0:
-            machine.delete()
-        elif machine_code and not machine:
-            m = Machine.objects.filter(machine_code=machine_code, is_active=False).first()
-            if m and m.sessions.count() == 0:
-                m.delete()
 
         return Response(
             {"message": f"Session {session_id} successfully deleted."},

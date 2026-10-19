@@ -63,10 +63,6 @@ def get_day_wise_analytics(date_str=None):
     for m in all_machines:
         m_sessions = sessions.filter(Q(machine=m) | Q(machine_code=m.machine_code))
         runs_count = m_sessions.count()
-        # If machine is inactive and has 0 sessions in this filtered period, skip it
-        if not m.is_active and runs_count == 0:
-            continue
-
         m_unique_people = m_sessions.values('customer_email').distinct().count()
         m_minutes = m_sessions.aggregate(total=Sum('duration_minutes'))['total'] or 0
         machine_status = m.status if m.is_active else 'removed'
