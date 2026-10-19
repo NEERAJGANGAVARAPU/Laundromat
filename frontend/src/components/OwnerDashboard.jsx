@@ -482,6 +482,7 @@ export default function OwnerDashboard() {
 
   const occupiedDryers = dryers.filter((m) => m.status === 'occupied').length;
   const availableDryers = dryers.filter((m) => m.status === 'available').length;
+  const maintenanceDryers = dryers.filter((m) => m.status === 'maintenance').length;
 
   // Filtered machines for display
   const filteredMachines = machines.filter((m) => {
@@ -720,13 +721,18 @@ export default function OwnerDashboard() {
               <span className="kpi-total-num">/ {washers.length} occupied</span>
             </div>
             <div className="segmented-bar">
-              {washers.map((w, i) => (
-                <div
-                  key={w.code}
-                  className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                    }`}
-                />
-              ))}
+              {washers.length > 0 ? (
+                washers.map((w) => (
+                  <div
+                    key={w.code}
+                    title={`${w.code}: ${w.status === 'occupied' ? 'Occupied' : w.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                    className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                      }`}
+                  />
+                ))
+              ) : (
+                <div className="bar-chunk chunk-light" title="No washers configured" />
+              )}
             </div>
             <span className="kpi-footer-text">
               {availableWashers} available · {maintenanceWashers} maintenance
@@ -741,16 +747,21 @@ export default function OwnerDashboard() {
               <span className="kpi-total-num">/ {dryers.length} occupied</span>
             </div>
             <div className="segmented-bar">
-              {dryers.map((d, i) => (
-                <div
-                  key={d.code}
-                  className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                    }`}
-                />
-              ))}
+              {dryers.length > 0 ? (
+                dryers.map((d) => (
+                  <div
+                    key={d.code}
+                    title={`${d.code}: ${d.status === 'occupied' ? 'Occupied' : d.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                    className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                      }`}
+                  />
+                ))
+              ) : (
+                <div className="bar-chunk chunk-light" title="No dryers configured" />
+              )}
             </div>
             <span className="kpi-footer-text">
-              {availableDryers} available · 0 maintenance
+              {availableDryers} available · {maintenanceDryers} maintenance
             </span>
           </div>
 

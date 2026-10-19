@@ -5,8 +5,8 @@ import '../OwnerPortal.css';
 
 export default function OwnerLogin({ onLogin }) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('vikranth');
-  const [password, setPassword] = useState('vikranth@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);

@@ -678,6 +678,13 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 156px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpi-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
 }
 
 .kpi-label {
@@ -710,13 +717,22 @@
 .segmented-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  height: 6px;
-  margin-bottom: 12px;
+  gap: 6px 5px;
+  width: 100%;
+  margin-top: 4px;
+  margin-bottom: 14px;
 }
 
 .bar-chunk {
-  border-radius: 3px;
+  height: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.bar-chunk:hover {
+  transform: scaleY(1.35);
+  filter: brightness(0.95);
 }
 
 .chunk-blue {
@@ -735,6 +751,7 @@
   font-size: 12.5px;
   color: #64748b;
   font-weight: 500;
+  margin-top: auto;
 }
 
 /* Sections */
@@ -894,6 +911,7 @@
   flex-direction: column;
   justify-content: space-between;
   background-color: #ffffff;
+  min-height: 180px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
