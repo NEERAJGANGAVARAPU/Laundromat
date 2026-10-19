@@ -252,4 +252,90 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
+    def update(self, request, *args, **kwargs):
+        """
+        PUT/PATCH /api/sessions/<id>/
+        Allows Owner to update customer name, phone, email, duration, or change session status.
+        """
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        prev_status = instance.status
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        session = serializer.save()
+
+        # Synchronize machine availability if status changed
+        if prev_status == 'active' and session.status in ['completed', 'cancelled']:
+            if session.machine:
+                session.machine.status = 'available'
+                session.machine.save(update_fields=['status'])
+            if not session.completed_at:
+                session.completed_at = timezone.now()
+                session.save(update_fields=['completed_at'])
+        elif prev_status != 'active' and session.status == 'active':
+            if session.machine:
+                session.machine.status = 'in_use'
+                session.machine.save(update_fields=['status'])
+
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        DELETE /api/sessions/<id>/
+        Allows Owner to delete a session and safely releases the machine if the deleted session was active.
+        """
+        session = self.get_object()
+        machine = session.machine
+        if session.status == 'active' and machine:
+            machine.status = 'available'
+            machine.save(update_fields=['status'])
+        session_id = str(session.id)
+        session.delete()
+        return Response(
+            {"message": f"Session {session_id} successfully deleted."},
+            status=status.HTTP_200_OK
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def reports_analytics_view(request):
+    """
+    GET /api/reports/analytics/?date=YYYY-MM-DD
+    Returns day-wise KPIs, machine utilization breakdown, and unique people count.
+    """
+    from .reports import get_day_wise_analytics
+    date_str = request.query_params.get('date', 'all')
+    data = get_day_wise_analytics(date_str)
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def reports_csv_view(request):
+    """
+    GET /api/reports/csv/?date=YYYY-MM-DD&status=...&search=...
+    Streams a CSV file containing all filtered session records.
+    """
+    from .reports import export_sessions_csv
+    date_str = request.query_params.get('date', 'all')
+    status_filter = request.query_params.get('status', 'all')
+    search_query = request.query_params.get('search', '')
+    return export_sessions_csv(date_str, status_filter, search_query)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def reports_pdf_view(request):
+    """
+    GET /api/reports/pdf/?date=YYYY-MM-DD&status=...&search=...
+    Generates and streams a formatted PDF report with KPI summaries and table breakdown.
+    """
+    from .reports import export_sessions_pdf
+    date_str = request.query_params.get('date', 'all')
+    status_filter = request.query_params.get('status', 'all')
+    search_query = request.query_params.get('search', '')
+    return export_sessions_pdf(date_str, status_filter, search_query)
+
 

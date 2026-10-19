@@ -26,7 +26,15 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  BarChart3,
+  FileSpreadsheet,
+  FileText,
+  Calendar,
+  Edit3,
+  UserPlus,
+  X,
+  RefreshCw
 } from 'lucide-react';
 import '../OwnerPortal.css';
 
@@ -76,6 +84,43 @@ export default function OwnerDashboard() {
   const apiHost = window.location.hostname || '127.0.0.1';
   const [detectedLanIp, setDetectedLanIp] = useState('');
 
+  // ================= REPORTS & ANALYTICS STATE =================
+  const [selectedReportDate, setSelectedReportDate] = useState('all');
+  const [reportAnalytics, setReportAnalytics] = useState({
+    selected_date: 'all',
+    available_dates: [],
+    summary: {
+      total_sessions: 0,
+      unique_customers: 0,
+      completed_count: 0,
+      cancelled_count: 0,
+      active_count: 0,
+      total_minutes: 0,
+      most_active_machine: 'N/A'
+    },
+    machine_breakdown: []
+  });
+  const [reportSearch, setReportSearch] = useState('');
+  const [reportStatusFilter, setReportStatusFilter] = useState('all');
+
+  // Manual Walk-In Session Modal State (Create)
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [manualMachine, setManualMachine] = useState('W-1');
+  const [manualName, setManualName] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualDuration, setManualDuration] = useState(30);
+  const [manualStatus, setManualStatus] = useState('completed');
+
+  // Edit Session Modal State (Update)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingSession, setEditingSession] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editDuration, setEditDuration] = useState(30);
+  const [editStatus, setEditStatus] = useState('completed');
+
   // Auto-detect active network IP from Django
   useEffect(() => {
     const fetchIp = async () => {
@@ -94,6 +139,130 @@ export default function OwnerDashboard() {
     };
     fetchIp();
   }, [apiHost]);
+
+  // Fetch Day-wise Report Analytics
+  const fetchReportAnalytics = async (date = selectedReportDate) => {
+    try {
+      let res = await fetch(`/api/reports/analytics/?date=${date}`).catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/reports/analytics/?date=${date}`);
+      }
+      if (res.ok) {
+        const data = await res.json();
+        setReportAnalytics(data);
+      }
+    } catch (e) {
+      console.warn('Analytics fetch error:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchReportAnalytics(selectedReportDate);
+  }, [selectedReportDate, activeNav]);
+
+  // Export CSV Handler
+  const handleExportCSV = () => {
+    const url = `http://${apiHost}:8000/api/reports/csv/?date=${selectedReportDate}&status=${reportStatusFilter}&search=${encodeURIComponent(reportSearch)}`;
+    window.open(url, '_blank');
+  };
+
+  // Export PDF Handler
+  const handleExportPDF = () => {
+    const url = `http://${apiHost}:8000/api/reports/pdf/?date=${selectedReportDate}&status=${reportStatusFilter}&search=${encodeURIComponent(reportSearch)}`;
+    window.open(url, '_blank');
+  };
+
+  // Create Manual Walk-in Session
+  const handleCreateManualSession = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/sessions/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machine_code: manualMachine,
+          customer_name: manualName.trim() || 'Walk-in Customer',
+          customer_email: manualEmail.trim() || `walkin-${Date.now()}@laundromat.local`,
+          customer_phone: manualPhone.trim(),
+          duration_minutes: parseInt(manualDuration, 10) || 30,
+          status: manualStatus
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create session');
+
+      setIsManualModalOpen(false);
+      setManualName('');
+      setManualEmail('');
+      setManualPhone('');
+      fetchBackendSessions();
+      fetchBackendMachines();
+      fetchReportAnalytics(selectedReportDate);
+      alert('Walk-in session recorded successfully!');
+    } catch (err) {
+      alert(`Error creating session: ${err.message}`);
+    }
+  };
+
+  // Open Edit Session Modal
+  const openEditModal = (sess) => {
+    setEditingSession(sess);
+    setEditName(sess.name || '');
+    setEditEmail(sess.realEmail || '');
+    setEditPhone(sess.realPhone && sess.realPhone !== 'Not provided' ? sess.realPhone : '');
+    setEditDuration(sess.duration || 30);
+    setEditStatus(sess.status || 'completed');
+    setIsEditModalOpen(true);
+  };
+
+  // Update Session Handler (PATCH)
+  const handleUpdateSession = async (e) => {
+    e.preventDefault();
+    if (!editingSession) return;
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/sessions/${editingSession.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: editName.trim(),
+          customer_email: editEmail.trim(),
+          customer_phone: editPhone.trim(),
+          duration_minutes: parseInt(editDuration, 10) || 30,
+          status: editStatus
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update session');
+      }
+
+      setIsEditModalOpen(false);
+      setEditingSession(null);
+      fetchBackendSessions();
+      fetchBackendMachines();
+      fetchReportAnalytics(selectedReportDate);
+      alert('Session updated successfully!');
+    } catch (err) {
+      alert(`Update error: ${err.message}`);
+    }
+  };
+
+  // Delete Session Handler (DELETE)
+  const handleDeleteSession = async (sessionId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this customer session?')) return;
+    try {
+      const res = await fetch(`http://${apiHost}:8000/api/sessions/${sessionId}/`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete session');
+
+      fetchBackendSessions();
+      fetchBackendMachines();
+      fetchReportAnalytics(selectedReportDate);
+    } catch (err) {
+      alert(`Delete error: ${err.message}`);
+    }
+  };
 
   // Fetch live machines from Django backend
   const fetchBackendMachines = async () => {
@@ -154,6 +323,11 @@ export default function OwnerDashboard() {
             realPhone: realPhone,
             machine: s.machine_code,
             service: s.machine_type === 'dryer' ? 'Dry' : 'Wash',
+            duration: s.duration_minutes,
+            startedAt: s.started_at ? new Date(s.started_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
+            completedAt: s.completed_at ? new Date(s.completed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
+            rawStartedAt: s.started_at,
+            rawDate: s.started_at ? s.started_at.split('T')[0] : '',
             timeRemaining: s.status === 'active' ? 'Active in progress' : s.status,
             status: s.status,
             revealed: false
@@ -320,6 +494,19 @@ export default function OwnerDashboard() {
     return matchesType && matchesStatus && matchesSearch;
   });
 
+  // Filtered customer sessions for Reports view
+  const filteredReportSessions = customers.filter((c) => {
+    const matchesDate = selectedReportDate === 'all' || !selectedReportDate || c.rawDate === selectedReportDate;
+    const matchesStatus = reportStatusFilter === 'all' || c.status === reportStatusFilter;
+    const q = reportSearch.toLowerCase().trim();
+    const matchesSearch = !q ||
+      (c.name && c.name.toLowerCase().includes(q)) ||
+      (c.realEmail && c.realEmail.toLowerCase().includes(q)) ||
+      (c.realPhone && c.realPhone.toLowerCase().includes(q)) ||
+      (c.machine && c.machine.toLowerCase().includes(q));
+    return matchesDate && matchesStatus && matchesSearch;
+  });
+
   const selectedMachineObj = machines.find((m) => m.code === selectedQrMachine) || machines[0];
 
   return (
@@ -370,6 +557,14 @@ export default function OwnerDashboard() {
           >
             <LayoutDashboard size={18} />
             <span>Overview</span>
+          </button>
+
+          <button
+            className={`nav-item-btn ${activeNav === 'reports' ? 'active' : ''}`}
+            onClick={() => setActiveNav('reports')}
+          >
+            <BarChart3 size={18} />
+            <span>Reports</span>
           </button>
 
           <button
@@ -465,7 +660,9 @@ export default function OwnerDashboard() {
           <div className="breadcrumbs">
             <span>Owner portal</span>
             <span className="crumb-sep">/</span>
-            <span className="crumb-current">Overview</span>
+            <span className="crumb-current">
+              {activeNav === 'reports' ? 'Reports & Analytics' : 'Overview'}
+            </span>
           </div>
 
           <div className="topbar-right">
@@ -484,8 +681,10 @@ export default function OwnerDashboard() {
           </div>
         </header>
 
-        {/* Title & Action Section */}
-        <div className="dashboard-title-row">
+        {activeNav !== 'reports' ? (
+          <>
+            {/* Title & Action Section */}
+            <div className="dashboard-title-row">
           <div>
             <h1 className="dash-heading">The day, at a glance.</h1>
             <p className="dash-subheading">
@@ -890,6 +1089,313 @@ export default function OwnerDashboard() {
             </div>
           </div>
         </section>
+          </>
+        ) : (
+          /* ================= REPORTS & ANALYTICS VIEW ================= */
+          <div className="reports-view-container">
+            {/* Top Bar / Header */}
+            <div className="reports-top-bar">
+              <div className="reports-title-col">
+                <h1>Business Reports &amp; Analytics</h1>
+                <p>
+                  Day-by-day machine usage, customer footfall tracking, full session CRUD &amp; multi-format export.
+                </p>
+              </div>
+
+              <div className="reports-controls-col">
+                <div className="date-select-wrapper">
+                  <Calendar size={16} />
+                  <select
+                    value={selectedReportDate}
+                    onChange={(e) => setSelectedReportDate(e.target.value)}
+                    className="date-dropdown"
+                  >
+                    <option value="all">All Dates Combined</option>
+                    {reportAnalytics.available_dates && reportAnalytics.available_dates.map((d) => (
+                      <option key={d} value={d}>
+                        {d} {d === new Date().toISOString().split('T')[0] ? '(Today)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button className="btn-export btn-csv" onClick={handleExportCSV} title="Download CSV Report">
+                  <FileSpreadsheet size={16} />
+                  <span>Export CSV</span>
+                </button>
+
+                <button className="btn-export btn-pdf" onClick={handleExportPDF} title="Download PDF Report">
+                  <FileText size={16} />
+                  <span>Export PDF</span>
+                </button>
+
+                <button className="btn-export btn-record-walkin" onClick={() => setIsManualModalOpen(true)}>
+                  <UserPlus size={16} />
+                  <span>+ Record Walk-In</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Day KPI Metrics Grid */}
+            <div className="reports-kpi-grid">
+              <div className="report-card">
+                <span className="report-card-label">Day Total Cycles</span>
+                <span className="report-card-num">{reportAnalytics.summary?.total_sessions ?? 0}</span>
+                <span className="report-card-sub">Wash &amp; dry runs recorded</span>
+              </div>
+
+              <div className="report-card">
+                <span className="report-card-label">Unique People Count</span>
+                <span className="report-card-num">{reportAnalytics.summary?.unique_customers ?? 0}</span>
+                <span className="report-card-sub">Individual customers tracked</span>
+              </div>
+
+              <div className="report-card">
+                <span className="report-card-label">Session Outcomes</span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginTop: '4px' }}>
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#059669' }}>
+                    {reportAnalytics.summary?.completed_count ?? 0}
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Done ·</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#2563eb' }}>
+                    {reportAnalytics.summary?.active_count ?? 0}
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Active ·</span>
+                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#dc2626' }}>
+                    {reportAnalytics.summary?.cancelled_count ?? 0}
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>Cancelled</span>
+                </div>
+                <span className="report-card-sub">Completed vs active loads</span>
+              </div>
+
+              <div className="report-card">
+                <span className="report-card-label">Total Time &amp; Top Machine</span>
+                <span className="report-card-num">
+                  {reportAnalytics.summary?.total_minutes ?? 0} <span style={{ fontSize: '15px', fontWeight: 600, color: '#64748b' }}>mins</span>
+                </span>
+                <span className="report-card-sub">
+                  Most active: <strong className="report-card-highlight">{reportAnalytics.summary?.most_active_machine || 'None'}</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* DAY-WISE MACHINE USAGE & PEOPLE COUNT TABLE */}
+            <section className="dash-section">
+              <div className="section-header-row">
+                <div className="section-title-group">
+                  <h2 className="section-title">Machine Utilization &amp; People Count</h2>
+                  <span className="section-count-badge">
+                    {selectedReportDate === 'all' ? 'All Days' : `Date: ${selectedReportDate}`}
+                  </span>
+                </div>
+                <span className="static-note">
+                  Number of people who used each specific machine and cycle count
+                </span>
+              </div>
+
+              <div className="table-wrapper">
+                <table className="sessions-table">
+                  <thead>
+                    <tr>
+                      <th>MACHINE CODE</th>
+                      <th>MACHINE TYPE</th>
+                      <th>CYCLES RUN</th>
+                      <th>NUMBER OF PEOPLE USED</th>
+                      <th>TOTAL RUNTIME</th>
+                      <th>FLOOR STATUS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(reportAnalytics.machine_breakdown && reportAnalytics.machine_breakdown.length > 0) ? (
+                      reportAnalytics.machine_breakdown.map((m) => (
+                        <tr key={m.code}>
+                          <td>
+                            <span className="machine-tag-cell">{m.code}</span>
+                          </td>
+                          <td>
+                            <span className="service-text" style={{ textTransform: 'capitalize' }}>
+                              {m.type === 'washer' ? '🧺 Washer' : '🌀 Dryer'}
+                            </span>
+                          </td>
+                          <td>
+                            <strong style={{ fontSize: '15px', color: '#0b1a44' }}>{m.runs_count}</strong> cycles
+                          </td>
+                          <td>
+                            <span className="people-count-badge">
+                              👥 {m.unique_people_count} {m.unique_people_count === 1 ? 'person' : 'people'}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600 }}>{m.total_minutes}</span> mins
+                          </td>
+                          <td>
+                            <span className={`status-chip ${m.status === 'available' ? 'chip-green' : m.status === 'in_use' ? 'chip-blue' : 'chip-orange'}`}>
+                              • {m.status === 'in_use' ? 'occupied' : m.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: '#64748b' }}>
+                          No machine activity found for this period.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            {/* CUSTOMER SESSIONS DATABASE CRUD TABLE */}
+            <section className="dash-section">
+              <div className="section-header-row" style={{ flexWrap: 'wrap', gap: '12px' }}>
+                <div className="section-title-group">
+                  <h2 className="section-title">Customer Sessions Database</h2>
+                  <span className="active-sessions-tag">{filteredReportSessions.length} records</span>
+                </div>
+
+                <div className="filter-bar-row" style={{ margin: 0 }}>
+                  <div className="report-search-box">
+                    <Search size={15} style={{ color: '#64748b' }} />
+                    <input
+                      type="text"
+                      className="report-search-input"
+                      placeholder="Search customer, phone, email, machine..."
+                      value={reportSearch}
+                      onChange={(e) => setReportSearch(e.target.value)}
+                    />
+                    {reportSearch && (
+                      <button
+                        onClick={() => setReportSearch('')}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="status-pills-row">
+                    {['all', 'active', 'completed', 'cancelled'].map((st) => (
+                      <button
+                        key={st}
+                        className={`status-pill-btn ${reportStatusFilter === st ? 'active' : ''}`}
+                        onClick={() => setReportStatusFilter(st)}
+                      >
+                        {st.charAt(0).toUpperCase() + st.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    className="refresh-icon-btn"
+                    onClick={() => {
+                      fetchBackendSessions();
+                      fetchReportAnalytics(selectedReportDate);
+                    }}
+                    title="Refresh Data"
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="table-wrapper">
+                <table className="sessions-table">
+                  <thead>
+                    <tr>
+                      <th>CUSTOMER</th>
+                      <th>CONTACT</th>
+                      <th>MACHINE</th>
+                      <th>DURATION</th>
+                      <th>STARTED</th>
+                      <th>COMPLETED</th>
+                      <th>STATUS</th>
+                      <th>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredReportSessions.length > 0 ? (
+                      filteredReportSessions.map((c) => (
+                        <tr key={c.id}>
+                          <td>
+                            <div className="cust-cell">
+                              <div className="cust-avatar">{c.initials}</div>
+                              <div>
+                                <span className="cust-name" style={{ fontWeight: 700 }}>{c.name}</span>
+                                <div style={{ fontSize: '11px', color: '#64748b' }}>Session #{c.id}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="contact-cell">
+                              <span className="contact-email">{c.revealed ? c.realEmail : c.email}</span>
+                              <span className="contact-phone">{c.revealed ? c.realPhone : c.phone}</span>
+                              <button
+                                className="reveal-btn"
+                                onClick={() => toggleContactReveal(c.id)}
+                              >
+                                {c.revealed ? 'Hide' : 'Reveal'}
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="machine-tag-cell">{c.machine}</span>
+                            <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '2px' }}>
+                              {c.service}
+                            </span>
+                          </td>
+                          <td>
+                            <strong>{c.duration || 30}</strong> mins
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '12.5px' }}>{c.startedAt}</span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '12.5px' }}>{c.completedAt}</span>
+                          </td>
+                          <td>
+                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'active' ? 'chip-blue' : 'chip-orange'}`}>
+                              • {c.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                              <button
+                                className="table-action-btn action-edit"
+                                onClick={() => openEditModal(c)}
+                                title="Edit Session"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                className="table-action-btn action-delete"
+                                onClick={() => handleDeleteSession(c.id)}
+                                title="Delete Session"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                          No sessions match the current date and filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="table-caption-note">
+                Showing {filteredReportSessions.length} session records · Real-time CRUD synchronization
+              </p>
+            </section>
+          </div>
+        )}
 
         {/* Global Dashboard Disclaimer */}
         <footer className="dash-footer">
@@ -973,6 +1479,187 @@ export default function OwnerDashboard() {
                 </button>
                 <button type="submit" className="modal-submit-btn">
                   Add Machine
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MANUAL WALK-IN MODAL (CREATE) ================= */}
+      {isManualModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsManualModalOpen(false)}>
+          <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Record Walk-In Session</h3>
+              <button className="modal-close-btn" onClick={() => setIsManualModalOpen(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateManualSession} className="modal-form">
+              <div className="modal-field">
+                <label>Select Machine</label>
+                <select
+                  value={manualMachine}
+                  onChange={(e) => setManualMachine(e.target.value)}
+                  className="modal-select"
+                  required
+                >
+                  {machines.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.code} - {m.type === 'washer' ? 'Washer' : 'Dryer'} ({m.status})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-field">
+                <label>Customer Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Phone Number</label>
+                <input
+                  type="tel"
+                  placeholder="e.g. +1 555-0199"
+                  value={manualPhone}
+                  onChange={(e) => setManualPhone(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Email (optional)</label>
+                <input
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Duration (minutes)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="180"
+                  value={manualDuration}
+                  onChange={(e) => setManualDuration(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Session Status</label>
+                <select
+                  value={manualStatus}
+                  onChange={(e) => setManualStatus(e.target.value)}
+                  className="modal-select"
+                >
+                  <option value="completed">Completed (Walk-in already finished)</option>
+                  <option value="active">Active (Currently running on floor)</option>
+                </select>
+              </div>
+
+              <div className="modal-btn-row">
+                <button
+                  type="button"
+                  className="modal-cancel-btn"
+                  onClick={() => setIsManualModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="modal-submit-btn">
+                  Save Walk-In Record
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= EDIT SESSION MODAL (UPDATE) ================= */}
+      {isEditModalOpen && editingSession && (
+        <div className="modal-backdrop" onClick={() => setIsEditModalOpen(false)}>
+          <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title">Edit Session #{editingSession.id} ({editingSession.machine})</h3>
+              <button className="modal-close-btn" onClick={() => setIsEditModalOpen(false)}>✕</button>
+            </div>
+
+            <form onSubmit={handleUpdateSession} className="modal-form">
+              <div className="modal-field">
+                <label>Customer Name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Customer Phone</label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Customer Email</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Duration (minutes)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={editDuration}
+                  onChange={(e) => setEditDuration(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="modal-field">
+                <label>Status</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value)}
+                  className="modal-select"
+                >
+                  <option value="completed">Completed</option>
+                  <option value="active">Active (In progress)</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div className="modal-btn-row">
+                <button
+                  type="button"
+                  className="modal-cancel-btn"
+                  onClick={() => setIsEditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="modal-submit-btn">
+                  Save Changes
                 </button>
               </div>
             </form>

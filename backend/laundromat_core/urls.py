@@ -1,6 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import MachineViewSet, LaundrySessionViewSet, network_ip_view
+from .views import (
+    MachineViewSet,
+    LaundrySessionViewSet,
+    network_ip_view,
+    reports_analytics_view,
+    reports_csv_view,
+    reports_pdf_view
+)
 
 # 1. Create a REST Framework router
 router = DefaultRouter()
@@ -20,5 +27,8 @@ router.register(r'sessions', LaundrySessionViewSet, basename='session')
 # 3. Include the router's generated URLs
 urlpatterns = [
     path('network-ip/', network_ip_view, name='network_ip'),
+    path('reports/analytics/', reports_analytics_view, name='reports_analytics'),
+    path('reports/csv/', reports_csv_view, name='reports_csv'),
+    path('reports/pdf/', reports_pdf_view, name='reports_pdf'),
     path('', include(router.urls)),
 ]
