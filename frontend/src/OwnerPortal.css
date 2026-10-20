@@ -911,7 +911,7 @@
   flex-direction: column;
   justify-content: space-between;
   background-color: #ffffff;
-  min-height: 180px;
+  min-height: 220px;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
@@ -994,34 +994,98 @@
 
 .floor-card-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
   border-top: 1px solid #f1f5f9;
+  margin-top: auto;
 }
 
-.card-action-link {
-  background: transparent;
-  color: #2558ea;
+.floor-btn-action {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
   font-size: 13px;
   font-weight: 700;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.15s ease;
+  cursor: pointer;
 }
 
-.card-action-link:hover {
-  text-decoration: underline;
+.floor-btn-qr {
+  background-color: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #2558ea;
+  width: 100%;
 }
 
-.card-action-delete {
-  background: transparent;
+.floor-btn-qr:hover {
+  background-color: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37, 88, 234, 0.12);
+}
+
+.floor-secondary-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.floor-btn-maint {
+  flex: 1;
+  background-color: #fffbeb;
+  border: 1.5px solid #fde68a;
+  color: #b45309;
+}
+
+.floor-btn-maint:hover {
+  background-color: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(180, 83, 9, 0.1);
+}
+
+.floor-btn-maint.is-in-maintenance {
+  background-color: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+  color: #047857;
+}
+
+.floor-btn-maint.is-in-maintenance:hover {
+  background-color: #d1fae5;
+  border-color: #6ee7b7;
+  color: #065f46;
+  box-shadow: 0 2px 6px rgba(4, 120, 87, 0.12);
+}
+
+.floor-btn-delete {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: 1.5px solid #e2e8f0;
+  background-color: #f8fafc;
   color: #94a3b8;
-  padding: 4px;
-  border-radius: 6px;
-  transition: color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  cursor: pointer;
 }
 
-.card-action-delete:hover {
-  color: #ef4444;
+.floor-btn-delete:hover {
+  background-color: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.1);
 }
 
 /* Customer Sessions Table */

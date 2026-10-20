@@ -888,30 +888,36 @@ export default function OwnerDashboard() {
 
                 <div className="floor-card-actions">
                   <button
-                    className="card-action-link"
+                    className="floor-btn-action floor-btn-qr"
                     onClick={() => {
                       setSelectedQrMachine(m.code);
                       const el = document.getElementById('qr-section');
                       if (el) el.scrollIntoView({ behavior: 'smooth' });
                     }}
+                    title={`Generate & Print QR Code for ${m.code}`}
                   >
-                    Generate QR
+                    <QrCode size={15} />
+                    <span>Generate QR</span>
                   </button>
 
-                  <button
-                    className="card-action-link"
-                    onClick={() => handleToggleMaintenance(m.code)}
-                  >
-                    {m.status === 'maintenance' ? 'Mark available' : 'Mark maintenance'}
-                  </button>
+                  <div className="floor-secondary-actions">
+                    <button
+                      className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
+                      onClick={() => handleToggleMaintenance(m.code)}
+                      title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                    >
+                      {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
+                      <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                    </button>
 
-                  <button
-                    className="card-action-delete"
-                    onClick={() => handleRemoveMachine(m.code)}
-                    title="Remove machine"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                    <button
+                      className="floor-btn-delete"
+                      onClick={() => handleRemoveMachine(m.code)}
+                      title={`Remove machine ${m.code}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
