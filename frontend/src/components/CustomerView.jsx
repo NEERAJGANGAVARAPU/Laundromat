@@ -23,9 +23,18 @@ export default function CustomerView() {
   // Navigation / Flow state: 1 = Check In, 2 = Set Timer, 3 = Running, 4 = Time to Head Back (<= 5 min)
   const [step, setStep] = useState(1);
 
-  // Form states
-  const [machineType, setMachineType] = useState('washer'); // 'washer' | 'dryer'
-  const [machineCode, setMachineCode] = useState('W-1');
+  // Form states - initialize immediately from QR parameter if present
+  const [machineCode, setMachineCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const m = params.get('machine');
+    return m ? m.toUpperCase() : 'W-1';
+  });
+  const [machineType, setMachineType] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const m = params.get('machine');
+    if (m && m.toUpperCase().startsWith('D')) return 'dryer';
+    return 'washer';
+  });
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -364,11 +373,40 @@ export default function CustomerView() {
         {/* ================= STEP 01: CHECK IN ================= */}
         {step === 1 && (
           <main className="content-step">
-            <div className="step-tag">01 / CHECK IN</div>
-            <h2 className="main-heading">
-              Fresh laundry.<br />
-              Less waiting.
-            </h2>
+            <div className="heading-with-machine-row">
+              <div className="heading-left-col">
+                <div className="step-tag">01 / CHECK IN</div>
+                <h2 className="main-heading">
+                  Fresh laundry.<br />
+                  Less waiting.
+                </h2>
+              </div>
+
+              {/* Scanned Machine Image Badge next to the Fresh Laundry Quote */}
+              <div
+                className={`scanned-machine-badge-next-to-quote ${machineType === 'washer' ? 'badge-washer' : 'badge-dryer'}`}
+                title={`Selected ${machineType === 'washer' ? 'Washing Machine' : 'Dryer'} (${machineCode})`}
+              >
+                <div className="badge-icon-bubble">
+                  {machineType === 'washer' ? (
+                    <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
+                      <circle cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="3.2" />
+                      <circle cx="24" cy="24" r="11" stroke="currentColor" strokeWidth="2.5" />
+                      <circle cx="24" cy="24" r="4.5" fill="currentColor" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 48 48" width="34" height="34" fill="none">
+                      <rect x="12" y="14" width="24" height="3.5" rx="1.75" fill="currentColor" />
+                      <rect x="9" y="22" width="30" height="4" rx="2" fill="currentColor" />
+                      <rect x="12" y="30" width="24" height="3.5" rx="1.75" fill="currentColor" />
+                    </svg>
+                  )}
+                </div>
+                <span className="badge-machine-tag">{machineCode}</span>
+                <span className="badge-machine-name">{machineType === 'washer' ? 'Washer' : 'Dryer'}</span>
+              </div>
+            </div>
+
             <p className="main-subtext">
               You're in the right place. Check in, set a timer and make the wait your own.
             </p>
@@ -378,17 +416,35 @@ export default function CustomerView() {
               <span>No account. No password. Just your wash.</span>
             </div>
 
-            {/* Connected machine info from QR code scan */}
-            <div className="backend-machines-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span className="api-dot" style={{ backgroundColor: backendConnected ? '#10B981' : '#F59E0B' }} />
-                <span>
-                  {backendConnected ? 'Connected to Django' : 'Local Mode'}: <strong>Machine {machineCode}</strong> ({machineType === 'washer' ? 'Washing Machine' : 'Dryer'})
-                </span>
+            {/* Machine field with Thank-You Alert & Cards (Only in Form Tab) */}
+            <div className="machine-field-section">
+              {/* Thank you message banner */}
+              <div className={`thankyou-machine-banner ${machineType === 'washer' ? 'is-washer' : 'is-dryer'}`}>
+                <div className="thankyou-icon-circle">
+                  {machineType === 'washer' ? (
+                    <svg viewBox="0 0 48 48" width="26" height="26" fill="none">
+                      <circle cx="24" cy="24" r="18" stroke="#2558EA" strokeWidth="3" />
+                      <circle cx="24" cy="24" r="11" stroke="#2558EA" strokeWidth="2.5" />
+                      <circle cx="24" cy="24" r="4.5" fill="#2558EA" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 48 48" width="26" height="26" fill="none">
+                      <rect x="12" y="14" width="24" height="3.5" rx="1.75" fill="#0284c7" />
+                      <rect x="9" y="22" width="30" height="4" rx="2" fill="#0284c7" />
+                      <rect x="12" y="30" width="24" height="3.5" rx="1.75" fill="#0284c7" />
+                    </svg>
+                  )}
+                </div>
+                <div className="thankyou-text-col">
+                  <h4 className="thankyou-headline">
+                    Thank you for selecting {machineType === 'washer' ? 'Washer' : 'the dryer'}
+                  </h4>
+                  <p className="thankyou-subline">
+                    Machine <strong>{machineCode}</strong> is configured for your session.
+                  </p>
+                </div>
               </div>
-              <span style={{ fontSize: '12px', opacity: 0.8, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: '12px' }}>
-                Scanned via QR
-              </span>
+
             </div>
 
             <div className="form-section">
