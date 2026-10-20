@@ -98,13 +98,13 @@ export default function OwnerLogin({ onLogin }) {
               </svg>
             </div>
 
-            {/* Left floating badge */}
+            {/* Left floating badge (sentence) */}
             <div className="floating-badge badge-left">
               <LayoutGrid size={15} color="#2558EA" />
               <span>Made for the everyday overview</span>
             </div>
 
-            {/* Right floating badge */}
+            {/* Right floating badge (sentence) */}
             <div className="floating-badge badge-right">
               <span className="cyan-dot"></span>
               <span>Keep the day flowing.</span>

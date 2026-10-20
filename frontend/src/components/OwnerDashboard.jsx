@@ -80,6 +80,13 @@ export default function OwnerDashboard() {
   // Selected Machine Details Modal
   const [selectedDetailMachine, setSelectedDetailMachine] = useState(null);
 
+  // Real-time ticker: updates every second so remaining countdown ticks live
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Dynamic API host
   const apiHost = window.location.hostname || '127.0.0.1';
   const [detectedLanIp, setDetectedLanIp] = useState('');
@@ -280,6 +287,8 @@ export default function OwnerDashboard() {
           type: m.machine_type,
           status: m.status === 'in_use' ? 'occupied' : m.status,
           timeRemaining: m.minutes_remaining || 0,
+          expectedEndAt: m.expected_end_at || null,
+          activeSessionId: m.active_session_id || null,
           customer: m.status === 'in_use' ? 'Wash in progress' : null,
           service: m.machine_type === 'washer' ? 'Wash' : 'Dry',
           note: m.status === 'maintenance' ? 'Under inspection / maintenance' : `${m.machine_type === 'washer' ? 'Washer' : 'Dryer'} ready for use`
@@ -507,6 +516,73 @@ export default function OwnerDashboard() {
       (c.machine && c.machine.toLowerCase().includes(q));
     return matchesDate && matchesStatus && matchesSearch;
   });
+
+  // Live Countdown & Telemetry calculation for Machine Floor Cards
+  const getMachineTimer = (machine) => {
+    const activeSession = customers.find((c) => c.machine === machine.code && c.status === 'active');
+
+    if (machine.status !== 'occupied') {
+      return {
+        isActive: false,
+        formatted: machine.status === 'maintenance' ? 'OFFLINE' : '00:00',
+        mins: 0,
+        secs: 0,
+        label: machine.status === 'maintenance' ? 'Under Maintenance' : 'Ready for Load',
+        percent: 0,
+        startedText: '-',
+        endsText: '-',
+        customerName: machine.status === 'maintenance' ? 'Flagged for inspection' : 'No active load',
+        service: machine.type === 'washer' ? 'Wash' : 'Dry'
+      };
+    }
+
+    const expectedEnd = machine.expectedEndAt || (activeSession?.rawStartedAt ? new Date(new Date(activeSession.rawStartedAt).getTime() + (activeSession.duration || 30) * 60000).toISOString() : null);
+
+    if (!expectedEnd) {
+      const mins = machine.timeRemaining || 0;
+      return {
+        isActive: true,
+        formatted: `${mins < 10 ? '0' : ''}${mins}:00`,
+        mins,
+        secs: 0,
+        label: `${mins} min left`,
+        percent: 50,
+        startedText: activeSession?.startedAt || 'Active',
+        endsText: 'Soon',
+        customerName: activeSession?.name || 'Customer Load',
+        service: activeSession?.service || (machine.type === 'washer' ? 'Wash' : 'Dry')
+      };
+    }
+
+    const endMs = new Date(expectedEnd).getTime();
+    const diffMs = Math.max(0, endMs - currentTime);
+    const totalSecs = Math.floor(diffMs / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+
+    const totalDurationMins = activeSession?.duration || 30;
+    const durationMs = totalDurationMins * 60 * 1000;
+    const elapsedMs = Math.max(0, durationMs - diffMs);
+    const percent = Math.min(100, Math.max(0, Math.round((elapsedMs / durationMs) * 100)));
+
+    const endsDate = new Date(expectedEnd);
+    const endsText = endsDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    const startedDate = activeSession?.rawStartedAt ? new Date(activeSession.rawStartedAt) : null;
+    const startedText = startedDate ? startedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '-';
+
+    return {
+      isActive: true,
+      formatted: `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`,
+      mins,
+      secs,
+      label: `${mins}m ${secs}s left`,
+      percent,
+      startedText,
+      endsText,
+      customerName: activeSession?.name || 'Customer Load',
+      service: activeSession?.service || (machine.type === 'washer' ? 'Wash' : 'Dry')
+    };
+  };
 
   const selectedMachineObj = machines.find((m) => m.code === selectedQrMachine) || machines[0];
 
@@ -846,81 +922,90 @@ export default function OwnerDashboard() {
 
           {/* Machine Floor Grid */}
           <div className="machine-cards-grid">
-            {filteredMachines.map((m) => (
-              <div key={m.code} className="machine-floor-card">
-                <div className="floor-card-top">
-                  <div className="code-badge-wrap">
-                    <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
-                    <span className="machine-code-text">{m.code}</span>
+            {filteredMachines.map((m) => {
+              const timer = getMachineTimer(m);
+
+              return (
+                <div key={m.code} className="machine-floor-card">
+                  <div className="floor-card-top">
+                    <div className="code-badge-wrap">
+                      <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
+                      <span className="machine-code-text">{m.code}</span>
+                    </div>
+
+                    <div className="floor-card-top-right">
+                      {m.status === 'occupied' && (
+                        <span className="status-chip chip-blue">• Occupied</span>
+                      )}
+                      {m.status === 'available' && (
+                        <span className="status-chip chip-green">• Available</span>
+                      )}
+                      {m.status === 'maintenance' && (
+                        <span className="status-chip chip-orange">• Maintenance</span>
+                      )}
+                    </div>
                   </div>
 
-                  {m.status === 'occupied' && (
-                    <span className="status-chip chip-blue">• Occupied</span>
-                  )}
-                  {m.status === 'available' && (
-                    <span className="status-chip chip-green">• Available</span>
-                  )}
-                  {m.status === 'maintenance' && (
-                    <span className="status-chip chip-orange">• Maintenance</span>
-                  )}
-                </div>
+                  <div className="floor-card-body">
+                    {m.status === 'occupied' && (
+                      <>
+                        <h4 className="floor-primary-text">{timer.label}</h4>
+                        <p className="floor-sub-text">{timer.customerName || m.customer || 'Active session'}</p>
+                      </>
+                    )}
+                    {m.status === 'available' && (
+                      <>
+                        <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
+                        <p className="floor-sub-text">No customer assigned</p>
+                      </>
+                    )}
+                    {m.status === 'maintenance' && (
+                      <>
+                        <h4 className="floor-primary-text text-amber">Out of service</h4>
+                        <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
+                      </>
+                    )}
+                  </div>
 
-                <div className="floor-card-body">
-                  {m.status === 'occupied' && (
-                    <>
-                      <h4 className="floor-primary-text">{m.timeRemaining} min left</h4>
-                      <p className="floor-sub-text">{m.customer || 'Active session'}</p>
-                    </>
-                  )}
-                  {m.status === 'available' && (
-                    <>
-                      <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
-                      <p className="floor-sub-text">No customer assigned</p>
-                    </>
-                  )}
-                  {m.status === 'maintenance' && (
-                    <>
-                      <h4 className="floor-primary-text text-amber">Out of service</h4>
-                      <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
-                    </>
-                  )}
-                </div>
-
-                <div className="floor-card-actions">
-                  <button
-                    className="floor-btn-action floor-btn-qr"
-                    onClick={() => {
-                      setSelectedQrMachine(m.code);
-                      const el = document.getElementById('qr-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    title={`Generate & Print QR Code for ${m.code}`}
-                  >
-                    <QrCode size={15} />
-                    <span>Generate QR</span>
-                  </button>
-
-                  <div className="floor-secondary-actions">
+                  <div className="floor-card-actions">
                     <button
-                      className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
-                      onClick={() => handleToggleMaintenance(m.code)}
-                      title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                      type="button"
+                      className="floor-btn-action floor-btn-qr"
+                      onClick={() => {
+                        setSelectedQrMachine(m.code);
+                        const el = document.getElementById('qr-section');
+                        if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      title={`Generate & Print QR Code for ${m.code}`}
                     >
-                      {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
-                      <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                      <QrCode size={15} />
+                      <span>Generate QR</span>
                     </button>
 
-                    <button
-                      className="floor-btn-delete"
-                      onClick={() => handleRemoveMachine(m.code)}
-                      title={`Remove machine ${m.code}`}
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="floor-secondary-actions">
+                      <button
+                        type="button"
+                        className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
+                        onClick={() => handleToggleMaintenance(m.code)}
+                        title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                      >
+                        {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
+                        <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        className="floor-btn-delete"
+                        onClick={() => handleRemoveMachine(m.code)}
+                        title={`Remove machine ${m.code}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
