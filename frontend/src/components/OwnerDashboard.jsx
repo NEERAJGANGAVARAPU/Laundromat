@@ -287,6 +287,8 @@ export default function OwnerDashboard() {
           type: m.machine_type,
           status: m.status === 'in_use' ? 'occupied' : m.status,
           timeRemaining: m.minutes_remaining || 0,
+          secondsRemaining: m.seconds_remaining || 0,
+          totalSeconds: m.total_seconds || 0,
           expectedEndAt: m.expected_end_at || null,
           activeSessionId: m.active_session_id || null,
           customer: m.status === 'in_use' ? 'Wash in progress' : null,

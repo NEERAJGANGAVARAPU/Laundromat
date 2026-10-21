@@ -20,36 +20,53 @@ import {
 import '../App.css';
 
 export default function CustomerView() {
-  // Navigation / Flow state: 1 = Check In, 2 = Set Timer, 3 = Running, 4 = Time to Head Back (<= 5 min)
-  const [step, setStep] = useState(1);
+  // Check if an active session was previously running on this client
+  const savedTargetEnd = localStorage.getItem('active_session_target_end');
+  const initialRemaining = savedTargetEnd
+    ? Math.max(0, Math.floor((parseInt(savedTargetEnd, 10) - Date.now()) / 1000))
+    : null;
+  const hasActiveLocalSession = initialRemaining !== null && initialRemaining > 0;
+  const savedTotalSecs = localStorage.getItem('active_session_total_secs');
+  const initialTotalSecs = savedTotalSecs ? parseInt(savedTotalSecs, 10) : 40 * 60;
+  const savedDuration = localStorage.getItem('active_session_duration');
+  const initialDuration = savedDuration ? parseInt(savedDuration, 10) : 40;
+  const savedCode = localStorage.getItem('active_session_code');
 
-  // Form states - initialize immediately from QR parameter if present
+  // Navigation / Flow state: 1 = Check In, 2 = Set Timer, 3 = Running, 4 = Time to Head Back (<= 5 min)
+  const [step, setStep] = useState(() => {
+    if (hasActiveLocalSession) {
+      return initialRemaining <= 300 ? 4 : 3;
+    }
+    return 1;
+  });
+
+  // Form states - initialize immediately from QR parameter or saved active session
   const [machineCode, setMachineCode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const m = params.get('machine');
-    return m ? m.toUpperCase() : 'W-1';
+    return m ? m.toUpperCase() : (savedCode || 'W-1');
   });
   const [machineType, setMachineType] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const m = params.get('machine');
-    if (m && m.toUpperCase().startsWith('D')) return 'dryer';
-    return 'washer';
+    const code = m ? m.toUpperCase() : (savedCode || 'W-1');
+    return code.startsWith('D') ? 'dryer' : 'washer';
   });
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [name, setName] = useState(() => localStorage.getItem('active_customer_name') || '');
+  const [email, setEmail] = useState(() => localStorage.getItem('active_customer_email') || '');
+  const [phone, setPhone] = useState(() => localStorage.getItem('active_customer_phone') || '');
 
   // Backend machines state
   const [availableMachines, setAvailableMachines] = useState([]);
   const [backendConnected, setBackendConnected] = useState(false);
 
   // Timer states
-  const [duration, setDuration] = useState(40); // in minutes
+  const [duration, setDuration] = useState(initialDuration); // in minutes
   const [isEditingDuration, setIsEditingDuration] = useState(false);
-  const [customInput, setCustomInput] = useState('40');
-  const [totalSeconds, setTotalSeconds] = useState(40 * 60);
-  const [secondsRemaining, setSecondsRemaining] = useState(40 * 60);
-  const [isRunning, setIsRunning] = useState(false);
+  const [customInput, setCustomInput] = useState(String(initialDuration));
+  const [totalSeconds, setTotalSeconds] = useState(initialTotalSecs);
+  const [secondsRemaining, setSecondsRemaining] = useState(hasActiveLocalSession ? initialRemaining : initialDuration * 60);
+  const [isRunning, setIsRunning] = useState(hasActiveLocalSession);
   const [notifPermission, setNotifPermission] = useState('default');
   const [acknowledgedHeadBack, setAcknowledgedHeadBack] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
@@ -101,26 +118,53 @@ export default function CustomerView() {
               localStorage.setItem('active_session_id', matched.active_session_id);
             }
 
-            // REFRESH RESILIENCE: If machine has an active session, resume countdown!
-            if (matched.expected_end_at) {
+            // REFRESH RESILIENCE: Prioritize server-side seconds_remaining (drift-free)
+            const serverSecondsRemaining = typeof matched.seconds_remaining === 'number' ? matched.seconds_remaining : null;
+            const serverTotalSecs = matched.total_seconds || (matched.minutes_remaining ? matched.minutes_remaining * 60 : 0);
+
+            // Compute fallback remaining seconds from target_end or expected_end_at
+            let effectiveRemaining = serverSecondsRemaining;
+            if (effectiveRemaining === null || effectiveRemaining <= 0) {
+              const savedEnd = localStorage.getItem('active_session_target_end');
+              if (savedEnd) {
+                const localRem = Math.max(0, Math.floor((parseInt(savedEnd, 10) - Date.now()) / 1000));
+                if (localRem > 0) {
+                  effectiveRemaining = localRem;
+                }
+              }
+            }
+
+            if (matched.status === 'in_use' && (effectiveRemaining === null || effectiveRemaining <= 0) && matched.expected_end_at) {
               const endMs = new Date(matched.expected_end_at).getTime();
               const nowMs = Date.now();
-              const remainingSecs = Math.max(0, Math.floor((endMs - nowMs) / 1000));
-
-              if (remainingSecs > 0) {
-                const estDuration = matched.minutes_remaining || Math.ceil(remainingSecs / 60);
-                setDuration(estDuration);
-                setTotalSeconds(Math.max(remainingSecs, estDuration * 60));
-                setSecondsRemaining(remainingSecs);
-                setIsRunning(true);
-                setStep(remainingSecs <= 300 ? 4 : 3);
-                return;
-              } else if (matched.status === 'in_use') {
-                setSecondsRemaining(0);
-                setIsRunning(false);
-                setStep(4);
-                return;
+              const diff = Math.floor((endMs - nowMs) / 1000);
+              if (diff > 0) {
+                effectiveRemaining = diff;
               }
+            }
+
+            if (effectiveRemaining !== null && effectiveRemaining > 0) {
+              const finalTotalSecs = serverTotalSecs > 0 ? serverTotalSecs : Math.max(effectiveRemaining, initialTotalSecs);
+              const finalDuration = Math.ceil(finalTotalSecs / 60);
+
+              setDuration(finalDuration);
+              setTotalSeconds(finalTotalSecs);
+              setSecondsRemaining(effectiveRemaining);
+              setIsRunning(true);
+              setStep(effectiveRemaining <= 300 ? 4 : 3);
+
+              // Update client target end aligned with remaining time
+              const updatedTargetEnd = Date.now() + effectiveRemaining * 1000;
+              localStorage.setItem('active_session_target_end', String(updatedTargetEnd));
+              localStorage.setItem('active_session_total_secs', String(finalTotalSecs));
+              localStorage.setItem('active_session_duration', String(finalDuration));
+              return;
+            } else if (matched.status === 'in_use' && (!effectiveRemaining || effectiveRemaining <= 0)) {
+              setSecondsRemaining(0);
+              setIsRunning(false);
+              setStep(4);
+              localStorage.removeItem('active_session_target_end');
+              return;
             }
             return;
           }
@@ -147,41 +191,73 @@ export default function CustomerView() {
     }
   }, [apiHost]);
 
-  // Timer countdown interval
+  // Live Timer Countdown Interval - calculates against target timestamp to prevent drift
   useEffect(() => {
     let timerId = null;
     if (isRunning && secondsRemaining > 0) {
       timerId = setInterval(() => {
-        setSecondsRemaining((prev) => {
-          const next = prev - 1;
-          if (next <= 300 && step === 3) {
-            setStep(4);
-            triggerNotification('Time to head back!', `${name || 'Alex'}, you have 5 minutes left on your wash.`);
-            playChime();
-          }
-            if (next <= 0) {
-            clearInterval(timerId);
-            setIsRunning(false);
-            triggerNotification('Wash Complete!', `${name || 'Alex'}, your wash is finished.`);
-            playChime();
+        const savedEnd = localStorage.getItem('active_session_target_end');
+        let next;
+        if (savedEnd) {
+          next = Math.max(0, Math.floor((parseInt(savedEnd, 10) - Date.now()) / 1000));
+        } else {
+          next = secondsRemaining - 1;
+        }
 
-            // Notify backend that session is complete to free the machine
-            if (activeSessionId) {
-              apiFetch(`/api/sessions/${activeSessionId}/complete/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-              }).catch((err) => console.warn('Complete session error:', err));
-            }
-            return 0;
+        setSecondsRemaining(next);
+
+        if (next <= 300 && step === 3) {
+          setStep(4);
+          triggerNotification('Time to head back!', `${name || 'Alex'}, you have 5 minutes left on your wash.`);
+          playChime();
+        }
+
+        if (next <= 0) {
+          clearInterval(timerId);
+          setIsRunning(false);
+          localStorage.removeItem('active_session_target_end');
+          triggerNotification('Wash Complete!', `${name || 'Alex'}, your wash is finished.`);
+          playChime();
+
+          // Notify backend that session is complete to free the machine
+          if (activeSessionId) {
+            apiFetch(`/api/sessions/${activeSessionId}/complete/`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+            }).catch((err) => console.warn('Complete session error:', err));
           }
-          return next;
-        });
+        }
       }, 1000);
     }
     return () => {
       if (timerId) clearInterval(timerId);
     };
-  }, [isRunning, secondsRemaining, step, name, activeSessionId, apiHost]);
+  }, [isRunning, step, name, activeSessionId, apiHost]);
+
+  // Tab focus / lock screen resume sync
+  useEffect(() => {
+    const handleSyncOnFocus = () => {
+      const savedEnd = localStorage.getItem('active_session_target_end');
+      if (savedEnd) {
+        const rem = Math.max(0, Math.floor((parseInt(savedEnd, 10) - Date.now()) / 1000));
+        setSecondsRemaining(rem);
+        if (rem <= 0 && isRunning) {
+          setIsRunning(false);
+          setStep(4);
+          localStorage.removeItem('active_session_target_end');
+        } else if (rem <= 300 && step === 3) {
+          setStep(4);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleSyncOnFocus);
+    window.addEventListener('focus', handleSyncOnFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleSyncOnFocus);
+      window.removeEventListener('focus', handleSyncOnFocus);
+    };
+  }, [isRunning, step]);
 
   const playChime = () => {
     try {
@@ -259,15 +335,27 @@ export default function CustomerView() {
         setActiveSessionId(data.id);
         localStorage.setItem('active_session_id', data.id);
       }
+      if (name) localStorage.setItem('active_customer_name', name);
+      if (email) localStorage.setItem('active_customer_email', email);
+      if (phone) localStorage.setItem('active_customer_phone', phone);
 
       // 2. Start the live countdown timer from server duration
-      const secs = finalDuration * 60;
-      setTotalSeconds(secs);
-      setSecondsRemaining(secs);
+      const totalSecsVal = (data.duration_minutes || finalDuration) * 60;
+      const initialSecs = typeof data.seconds_remaining === 'number' && data.seconds_remaining > 0
+        ? data.seconds_remaining
+        : totalSecsVal;
+      const targetEnd = Date.now() + initialSecs * 1000;
+
+      localStorage.setItem('active_session_target_end', String(targetEnd));
+      localStorage.setItem('active_session_total_secs', String(totalSecsVal));
+      localStorage.setItem('active_session_duration', String(data.duration_minutes || finalDuration));
+
+      setTotalSeconds(totalSecsVal);
+      setSecondsRemaining(initialSecs);
       setIsRunning(true);
       setAcknowledgedHeadBack(false);
 
-      if (secs <= 300) {
+      if (initialSecs <= 300) {
         setStep(4);
       } else {
         setStep(3);
@@ -285,6 +373,12 @@ export default function CustomerView() {
     setSecondsRemaining(0);
     setStep(2);
 
+    localStorage.removeItem('active_session_id');
+    localStorage.removeItem('active_session_code');
+    localStorage.removeItem('active_session_target_end');
+    localStorage.removeItem('active_session_total_secs');
+    localStorage.removeItem('active_session_duration');
+
     const sessId = activeSessionId || localStorage.getItem('active_session_id');
     if (sessId) {
       try {
@@ -295,8 +389,6 @@ export default function CustomerView() {
       } catch (err) {
         console.warn('Backend cancel error:', err);
       }
-      localStorage.removeItem('active_session_id');
-      localStorage.removeItem('active_session_code');
       setActiveSessionId(null);
     }
   };
@@ -711,8 +803,10 @@ export default function CustomerView() {
               <button
                 className="demo-pill-btn"
                 onClick={() => {
-                  setSecondsRemaining(300);
+                  const demoRem = 300;
+                  setSecondsRemaining(demoRem);
                   setStep(4);
+                  localStorage.setItem('active_session_target_end', String(Date.now() + demoRem * 1000));
                   playChime();
                 }}
               >
@@ -840,6 +934,9 @@ export default function CustomerView() {
                   onClick={() => {
                     localStorage.removeItem('active_session_id');
                     localStorage.removeItem('active_session_code');
+                    localStorage.removeItem('active_session_target_end');
+                    localStorage.removeItem('active_session_total_secs');
+                    localStorage.removeItem('active_session_duration');
                     setActiveSessionId(null);
                     setIsRunning(false);
                     setSecondsRemaining(0);

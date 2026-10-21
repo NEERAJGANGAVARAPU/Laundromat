@@ -7,6 +7,8 @@ class MachineSerializer(serializers.ModelSerializer):
     # 1. Custom fields that are NOT in the database, but calculated on the fly!
     is_available = serializers.SerializerMethodField()
     minutes_remaining = serializers.SerializerMethodField()
+    seconds_remaining = serializers.SerializerMethodField()
+    total_seconds = serializers.SerializerMethodField()
     active_session_id = serializers.SerializerMethodField()
     expected_end_at = serializers.SerializerMethodField()
 
@@ -21,6 +23,8 @@ class MachineSerializer(serializers.ModelSerializer):
             'is_active',
             'is_available',
             'minutes_remaining',
+            'seconds_remaining',
+            'total_seconds',
             'active_session_id',
             'expected_end_at',
             'created_at',
@@ -56,10 +60,27 @@ class MachineSerializer(serializers.ModelSerializer):
         """
         active_session = self.get_active_session(obj)
         if active_session:
-            # Subtract current time from expected_end_at
             remaining_seconds = (active_session.expected_end_at - timezone.now()).total_seconds()
-            # Convert seconds to whole minutes
             return max(0, int(remaining_seconds // 60))
+        return 0
+
+    def get_seconds_remaining(self, obj):
+        """
+        Calculates exact remaining seconds directly from server clock to prevent client clock skew.
+        """
+        active_session = self.get_active_session(obj)
+        if active_session:
+            remaining_seconds = (active_session.expected_end_at - timezone.now()).total_seconds()
+            return max(0, int(remaining_seconds))
+        return 0
+
+    def get_total_seconds(self, obj):
+        """
+        Returns the full duration of the active session in seconds for progress bar gauges.
+        """
+        active_session = self.get_active_session(obj)
+        if active_session:
+            return active_session.duration_minutes * 60
         return 0
 
     def get_active_session_id(self, obj):
@@ -84,6 +105,8 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
     machine_code = serializers.CharField(read_only=True)
     machine_type = serializers.SerializerMethodField()
     is_expired = serializers.BooleanField(read_only=True)
+    seconds_remaining = serializers.SerializerMethodField()
+    total_seconds = serializers.SerializerMethodField()
 
     def get_machine_type(self, obj):
         if obj.machine:
@@ -91,6 +114,15 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
         if obj.machine_code and obj.machine_code.upper().startswith('D'):
             return 'dryer'
         return 'washer'
+
+    def get_seconds_remaining(self, obj):
+        if obj.status == 'active':
+            rem = (obj.expected_end_at - timezone.now()).total_seconds()
+            return max(0, int(rem))
+        return 0
+
+    def get_total_seconds(self, obj):
+        return obj.duration_minutes * 60
 
     class Meta:
         model = LaundrySession
@@ -107,6 +139,8 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
             'completed_at',
             'status',
             'is_expired',
+            'seconds_remaining',
+            'total_seconds',
             'created_at',
         ]
         read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'created_at']
