@@ -5,8 +5,8 @@ import '../OwnerPortal.css';
 
 export default function OwnerLogin({ onLogin }) {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('vikranth');
-  const [password, setPassword] = useState('vikranth@123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -98,13 +98,13 @@ export default function OwnerLogin({ onLogin }) {
               </svg>
             </div>
 
-            {/* Left floating badge */}
+            {/* Left floating badge (sentence) */}
             <div className="floating-badge badge-left">
               <LayoutGrid size={15} color="#2558EA" />
               <span>Made for the everyday overview</span>
             </div>
 
-            {/* Right floating badge */}
+            {/* Right floating badge (sentence) */}
             <div className="floating-badge badge-right">
               <span className="cyan-dot"></span>
               <span>Keep the day flowing.</span>

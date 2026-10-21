@@ -133,6 +133,18 @@
   margin-bottom: 12px;
 }
 
+.heading-with-machine-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.heading-left-col {
+  flex: 1;
+}
+
 .main-heading {
   font-size: 38px;
   font-weight: 800;
@@ -140,6 +152,68 @@
   letter-spacing: -1px;
   color: #0b1a44;
   margin-bottom: 14px;
+}
+
+.scanned-machine-badge-next-to-quote {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 20px -4px rgba(11, 26, 68, 0.08);
+  margin-top: 4px;
+}
+
+.scanned-machine-badge-next-to-quote.badge-washer {
+  background-color: #2558ea;
+  color: #ffffff;
+  border: 1.5px solid #2558ea;
+}
+
+.scanned-machine-badge-next-to-quote.badge-washer .badge-icon-bubble {
+  background-color: #ffffff;
+  color: #2558ea;
+}
+
+.scanned-machine-badge-next-to-quote.badge-dryer {
+  background-color: #ffffff;
+  color: #0b1a44;
+  border: 1.5px solid #bfdbfe;
+}
+
+.scanned-machine-badge-next-to-quote.badge-dryer .badge-icon-bubble {
+  background-color: #e0f2fe;
+  color: #2558ea;
+}
+
+.badge-icon-bubble {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.badge-machine-tag {
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.2px;
+}
+
+.badge-machine-name {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
 }
 
 .main-subtext {
@@ -157,12 +231,82 @@
   font-size: 15px;
   font-weight: 700;
   color: #2354e6;
-  margin-bottom: 26px;
+  margin-bottom: 24px;
 }
 
 .trust-icon {
   color: #2354e6;
   flex-shrink: 0;
+}
+
+/* Machine Field Container & Thank You Banner */
+.machine-field-section {
+  margin-bottom: 24px;
+}
+
+.thankyou-machine-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: 16px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 14px -2px rgba(11, 26, 68, 0.06);
+  transition: all 0.25s ease;
+}
+
+.thankyou-machine-banner.is-washer {
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  color: #1e3a8a;
+}
+
+.thankyou-machine-banner.is-washer .thankyou-icon-circle {
+  background: #ffffff;
+  color: #2558ea;
+  box-shadow: 0 2px 8px rgba(37, 88, 234, 0.12);
+}
+
+.thankyou-machine-banner.is-dryer {
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  color: #14532d;
+}
+
+.thankyou-machine-banner.is-dryer .thankyou-icon-circle {
+  background: #ffffff;
+  color: #16a34a;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.12);
+}
+
+.thankyou-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.thankyou-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.thankyou-headline {
+  font-size: 14.5px;
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.thankyou-subline {
+  font-size: 12.5px;
+  margin: 0;
+  opacity: 0.85;
 }
 
 /* Machine Selector Grid */
@@ -251,10 +395,20 @@
 
 .washer-icon-circle {
   background-color: #ffffff;
+  color: #2a57e3;
+}
+
+.washer-card:not(.selected) .washer-icon-circle {
+  background-color: #d8edfd;
 }
 
 .dryer-icon-circle {
   background-color: #d8edfd;
+  color: #2a57e3;
+}
+
+.dryer-card.selected .dryer-icon-circle {
+  background-color: #ffffff;
 }
 
 .concentric-ring {
