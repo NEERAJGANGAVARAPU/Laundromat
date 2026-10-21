@@ -141,6 +141,7 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
             'is_expired',
             'seconds_remaining',
             'total_seconds',
+            'email_sent',
             'created_at',
         ]
-        read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'created_at']
+        read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'email_sent', 'created_at']

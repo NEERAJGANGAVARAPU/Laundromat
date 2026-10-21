@@ -12,6 +12,7 @@ from .models import Machine, LaundrySession
 from .serializer import MachineSerializer, LaundrySessionSerializer
 from .qr_utils import generate_qr_image
 from .services import sync_expired_sessions
+from .email_service import send_cycle_completed_email
 
 
 @api_view(['GET'])
@@ -285,6 +286,12 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             session.completed_at = timezone.now()
             session.save(update_fields=['status', 'completed_at'])
 
+            # Send wash/dry completion email
+            try:
+                send_cycle_completed_email(session)
+            except Exception:
+                pass
+
         serializer = self.get_serializer(session)
         return Response(
             {
@@ -315,6 +322,12 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             if not session.completed_at:
                 session.completed_at = timezone.now()
                 session.save(update_fields=['completed_at'])
+
+            if session.status == 'completed':
+                try:
+                    send_cycle_completed_email(session)
+                except Exception:
+                    pass
         elif prev_status != 'active' and session.status == 'active':
             if session.machine:
                 session.machine.status = 'in_use'
