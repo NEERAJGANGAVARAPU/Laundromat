@@ -275,13 +275,19 @@ A little less waiting. A little more you.
 
         # Record in Notification audit table (Section 7 specification)
         try:
-            from .models import Notification
+            from .models import Notification, AuditLog
             Notification.objects.update_or_create(
                 session=session,
                 defaults={'channel': 'email', 'status': 'sent', 'sent_at': timezone.now(), 'error_message': None}
             )
+            AuditLog.objects.create(
+                action='NOTIFICATION_SENT',
+                record_type='LaundrySession',
+                record_id=str(session.id),
+                change_details=f"Email notification sent to {customer_email} for machine {machine_code}."
+            )
         except Exception as notif_err:
-            logger.warning(f"Could not update Notification table: {notif_err}")
+            logger.warning(f"Could not update Notification/Audit table: {notif_err}")
 
         return True
     except Exception as e:

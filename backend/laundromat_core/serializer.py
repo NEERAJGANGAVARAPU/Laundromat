@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils import timezone
-from .models import Machine, LaundrySession
+from .models import Machine, LaundrySession, Notification, AuditLog
 
 
 class MachineSerializer(serializers.ModelSerializer):
@@ -145,3 +145,41 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
             'created_at',
         ]
         read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'email_sent', 'created_at']
+
+
+class AuditLogSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+    timestamp_formatted = serializers.SerializerMethodField()
+
+    def get_username(self, obj):
+        return obj.user.username if obj.user else 'System / Owner'
+
+    def get_timestamp_formatted(self, obj):
+        if not obj.timestamp:
+            return '-'
+        return timezone.localtime(obj.timestamp).strftime('%b %d, %Y %I:%M %p') if timezone.is_aware(obj.timestamp) else obj.timestamp.strftime('%b %d, %Y %I:%M %p')
+
+    class Meta:
+        model = AuditLog
+        fields = ['id', 'action', 'record_type', 'record_id', 'change_details', 'username', 'timestamp', 'timestamp_formatted']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    customer_email = serializers.SerializerMethodField()
+    machine_code = serializers.SerializerMethodField()
+    sent_at_formatted = serializers.SerializerMethodField()
+
+    def get_customer_email(self, obj):
+        return obj.session.customer_email if obj.session else ''
+
+    def get_machine_code(self, obj):
+        return obj.session.machine_code if obj.session else ''
+
+    def get_sent_at_formatted(self, obj):
+        if not obj.sent_at:
+            return '-'
+        return timezone.localtime(obj.sent_at).strftime('%b %d, %Y %I:%M %p') if timezone.is_aware(obj.sent_at) else obj.sent_at.strftime('%b %d, %Y %I:%M %p')
+
+    class Meta:
+        model = Notification
+        fields = ['id', 'session_id', 'customer_email', 'machine_code', 'channel', 'status', 'sent_at', 'sent_at_formatted', 'error_message']

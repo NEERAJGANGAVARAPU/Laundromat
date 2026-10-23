@@ -446,3 +446,31 @@ def reports_pdf_view(request):
     return export_sessions_pdf(date_str, status_filter, search_query)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def audit_logs_view(request):
+    """
+    GET /api/audit-logs/
+    Returns all administrative audit logs for owner accountability.
+    """
+    from .models import AuditLog
+    from .serializer import AuditLogSerializer
+    logs = AuditLog.objects.all().order_by('-timestamp')[:100]
+    serializer = AuditLogSerializer(logs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def notifications_view(request):
+    """
+    GET /api/notifications/
+    Returns all email delivery notification history.
+    """
+    from .models import Notification
+    from .serializer import NotificationSerializer
+    notifs = Notification.objects.all().select_related('session').order_by('-sent_at')[:100]
+    serializer = NotificationSerializer(notifs, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
