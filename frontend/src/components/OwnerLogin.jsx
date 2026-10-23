@@ -20,7 +20,8 @@ export default function OwnerLogin({ onLogin }) {
       const cleanUser = username.trim().toLowerCase();
       // Accepts 'vikranth' or 'vikranth@spinandstay.co' or 'jordan@spinandstay.co'
       const isValidUser = cleanUser === 'vikranth' || cleanUser.startsWith('vikranth@') || cleanUser === 'jordan@spinandstay.co';
-      const isValidPass = password === 'vikranth@123';
+      const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
+      const isValidPass = password === storedPass;
 
       if (isValidUser && isValidPass) {
         setIsLoading(false);
@@ -34,7 +35,7 @@ export default function OwnerLogin({ onLogin }) {
         navigate('/owner/dashboard');
       } else {
         setIsLoading(false);
-        setError('Invalid owner credentials. Please use username: vikranth and password: vikranth@123');
+        setError('Invalid owner credentials. Please verify your username and password.');
       }
     }, 400);
   };
@@ -177,7 +178,15 @@ export default function OwnerLogin({ onLogin }) {
                 </button>
               </div>
               <div className="forgot-pass-wrap">
-                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert('Password for this demo: vikranth@123'); }} className="forgot-pass-link">
+                <a
+                  href="#forgot"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const p = localStorage.getItem('spin_owner_password') || 'vikranth@123';
+                    alert(`Current Owner Password: ${p}\n\nYou can also change or reset it anytime in Dashboard > Access Settings.`);
+                  }}
+                  className="forgot-pass-link"
+                >
                   Forgot password?
                 </a>
               </div>

@@ -34,7 +34,10 @@ import {
   Edit3,
   UserPlus,
   X,
-  RefreshCw
+  RefreshCw,
+  Lock,
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import '../OwnerPortal.css';
 
@@ -79,6 +82,18 @@ export default function OwnerDashboard() {
 
   // Selected Machine Details Modal
   const [selectedDetailMachine, setSelectedDetailMachine] = useState(null);
+
+  // Access Settings State (Password Change & Reset)
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState(null);
+  const [storedPasswordTime, setStoredPasswordTime] = useState(
+    localStorage.getItem('spin_owner_password_updated_at')
+  );
 
   // Real-time ticker: updates every second so remaining countdown ticks live
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -435,7 +450,17 @@ export default function OwnerDashboard() {
   // Toggle Maintenance handler (Calls Django PATCH /api/machines/<code/ )
   const handleToggleMaintenance = async (machineCode) => {
     const current = machines.find((m) => m.code === machineCode);
-    const nextStatus = current?.status === 'maintenance' ? 'available' : 'maintenance';
+    if (!current) return;
+
+    // Disallow marking maintenance if machine is currently running/occupied
+    if (current.status === 'occupied' || current.status === 'in_use' || current.timeRemaining > 0) {
+      alert(
+        `⚠️ Invalid Action: ${current.type === 'washer' ? 'Washing machine' : 'Dryer'} ${machineCode} is currently running!\n\nYou cannot mark a machine as under maintenance while a customer cycle is active.`
+      );
+      return;
+    }
+
+    const nextStatus = current.status === 'maintenance' ? 'available' : 'maintenance';
 
     try {
       await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
@@ -451,7 +476,23 @@ export default function OwnerDashboard() {
 
   // Remove/Deactivate Machine handler (Calls Django DELETE /api/machines/<code/ )
   const handleRemoveMachine = async (machineCode) => {
-    if (!window.confirm(`Are you sure you want to deactivate machine ${machineCode}?`)) return;
+    const current = machines.find((m) => m.code === machineCode);
+
+    // Prevent deleting an active machine
+    if (current && (current.status === 'occupied' || current.status === 'in_use' || current.timeRemaining > 0)) {
+      alert(`⚠️ Invalid Action: Machine ${machineCode} is currently running! You cannot delete a machine while a session is active.`);
+      return;
+    }
+
+    // First confirmation
+    const firstConfirm = window.confirm(`Are you sure you want to delete machine ${machineCode} from the floor?`);
+    if (!firstConfirm) return;
+
+    // Second / Reconfirmation: "Are you willing to do that?"
+    const secondConfirm = window.confirm(
+      `⚠️ Double Confirmation Required:\n\nAre you willing to do that?\n\nThis will permanently delete machine ${machineCode} and its associated QR code. Click OK to confirm or Cancel to keep the machine.`
+    );
+    if (!secondConfirm) return;
 
     try {
       await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
@@ -461,8 +502,10 @@ export default function OwnerDashboard() {
       if (selectedQrMachine === machineCode) {
         setSelectedQrMachine(machines[0]?.code || 'W-1');
       }
+      alert(`Machine ${machineCode} has been successfully deleted.`);
     } catch (err) {
       console.warn('Failed to deactivate machine on backend:', err);
+      alert(`Failed to delete machine: ${err.message}`);
     }
   };
 
@@ -476,6 +519,82 @@ export default function OwnerDashboard() {
   // Print QR Label
   const handlePrintLabel = () => {
     window.print();
+  };
+
+  // Change Owner Password Handler
+  const handleChangePassword = (e) => {
+    e.preventDefault();
+    setSettingsStatus(null);
+
+    const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
+
+    if (currentPasswordInput !== storedPass) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'Current password is incorrect. Please verify your existing password.'
+      });
+      return;
+    }
+
+    if (newPasswordInput.length < 6) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password must be at least 6 characters long.'
+      });
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password and confirmation password do not match.'
+      });
+      return;
+    }
+
+    if (newPasswordInput === storedPass) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password cannot be the same as your current password.'
+      });
+      return;
+    }
+
+    // Save new password
+    const nowIso = new Date().toISOString();
+    localStorage.setItem('spin_owner_password', newPasswordInput);
+    localStorage.setItem('spin_owner_password_updated_at', nowIso);
+    setStoredPasswordTime(nowIso);
+
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+
+    setSettingsStatus({
+      type: 'success',
+      message: 'Password successfully changed! Your new password is now active.'
+    });
+  };
+
+  // Reset Owner Password to Default Handler
+  const handleResetPassword = () => {
+    const isConfirmed = window.confirm(
+      'Are you sure you want to reset your owner portal password to the system default (vikranth@123)?'
+    );
+    if (!isConfirmed) return;
+
+    localStorage.setItem('spin_owner_password', 'vikranth@123');
+    localStorage.removeItem('spin_owner_password_updated_at');
+    setStoredPasswordTime(null);
+
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+
+    setSettingsStatus({
+      type: 'success',
+      message: 'Password has been reset to default: vikranth@123'
+    });
   };
 
   // Metrics calculation
@@ -649,9 +768,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'qr' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('qr');
-              const el = document.getElementById('qr-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('qr-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <QrCode size={18} />
@@ -661,9 +782,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'machines' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('machines');
-              const el = document.getElementById('machines-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('machines-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <Layers size={18} />
@@ -674,9 +797,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'customers' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('customers');
-              const el = document.getElementById('sessions-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('sessions-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <Users size={18} />
@@ -740,12 +865,19 @@ export default function OwnerDashboard() {
             <span>Owner portal</span>
             <span className="crumb-sep">/</span>
             <span className="crumb-current">
-              {activeNav === 'reports' ? 'Reports & Analytics' : 'Overview'}
+              {activeNav === 'reports'
+                ? 'Reports & Analytics'
+                : activeNav === 'settings' || activeNav === 'security'
+                ? 'Access Settings'
+                : 'Overview'}
             </span>
           </div>
 
           <div className="topbar-right">
-            <span className="demo-pill">• Live portal</span>
+            <span className="demo-pill">
+              <span className="live-dot-pulse"></span>
+              Live portal
+            </span>
             <span className="current-date-text">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -760,7 +892,214 @@ export default function OwnerDashboard() {
           </div>
         </header>
 
-        {activeNav !== 'reports' ? (
+        {activeNav === 'settings' || activeNav === 'security' ? (
+          /* ================= ACCESS & SECURITY SETTINGS (PASSWORD & CREDENTIALS) ================= */
+          <div className="settings-view-container">
+            <div className="settings-header-card">
+              <div className="settings-header-left">
+                <div className="settings-icon-bubble">
+                  <Sliders size={24} color="#028a5d" />
+                </div>
+                <div>
+                  <h1 className="settings-title">Access &amp; Security Settings</h1>
+                  <p className="settings-subtitle">
+                    Manage owner account credentials, reset authentication keys, and update portal sign-in password.
+                  </p>
+                </div>
+              </div>
+              <span className="status-chip chip-green">
+                • Protected Session
+              </span>
+            </div>
+
+            {settingsStatus && (
+              <div className={`settings-alert-banner ${settingsStatus.type === 'success' ? 'alert-success' : 'alert-error'}`}>
+                {settingsStatus.type === 'success' ? (
+                  <CheckCircle size={18} className="alert-icon-success" />
+                ) : (
+                  <AlertTriangle size={18} className="alert-icon-error" />
+                )}
+                <span>{settingsStatus.message}</span>
+                <button
+                  type="button"
+                  className="alert-close-btn"
+                  onClick={() => setSettingsStatus(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <div className="settings-grid">
+              {/* Card 1: Change Password Form */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-card-icon-title">
+                    <Lock size={20} className="card-hdr-icon" />
+                    <div>
+                      <h3 className="settings-card-title">Change Password</h3>
+                      <p className="settings-card-desc">
+                        Update your portal password to keep your store management secure.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="settings-form">
+                  <div className="settings-field">
+                    <label className="settings-label">Current Password</label>
+                    <div className="settings-input-wrapper">
+                      <Lock size={16} className="settings-field-icon" />
+                      <input
+                        type={showCurrentPass ? 'text' : 'password'}
+                        placeholder="Enter current password"
+                        value={currentPasswordInput}
+                        onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      >
+                        {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label">New Password</label>
+                    <div className="settings-input-wrapper">
+                      <KeyRound size={16} className="settings-field-icon" />
+                      <input
+                        type={showNewPass ? 'text' : 'password'}
+                        placeholder="At least 6 characters"
+                        value={newPasswordInput}
+                        onChange={(e) => setNewPasswordInput(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                      >
+                        {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label">Confirm New Password</label>
+                    <div className="settings-input-wrapper">
+                      <KeyRound size={16} className="settings-field-icon" />
+                      <input
+                        type={showConfirmPass ? 'text' : 'password'}
+                        placeholder="Re-type new password"
+                        value={confirmPasswordInput}
+                        onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      >
+                        {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-action-row">
+                    <button type="submit" className="btn-save-settings">
+                      <Check size={16} />
+                      <span>Update Password</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Card 2: Reset Password & Credentials Overview */}
+              <div className="settings-side-col">
+                <div className="settings-card">
+                  <div className="settings-card-header">
+                    <div className="settings-card-icon-title">
+                      <RefreshCw size={20} className="card-hdr-icon text-orange" />
+                      <div>
+                        <h3 className="settings-card-title">Reset Password</h3>
+                        <p className="settings-card-desc">
+                          Need to restore default credentials? Reset your account password back to default.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="reset-card-body">
+                    <div className="default-pass-box">
+                      <span className="default-pass-label">System Default Password:</span>
+                      <code className="default-pass-code">vikranth@123</code>
+                    </div>
+
+                    <p className="reset-hint-text">
+                      Resetting will immediately restore the password to <strong>vikranth@123</strong>.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="btn-reset-password"
+                      onClick={handleResetPassword}
+                    >
+                      <RefreshCw size={15} />
+                      <span>Reset to Default Password</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-card">
+                  <div className="settings-card-header">
+                    <div className="settings-card-icon-title">
+                      <ShieldCheck size={20} className="card-hdr-icon text-green" />
+                      <div>
+                        <h3 className="settings-card-title">Owner Credentials</h3>
+                        <p className="settings-card-desc">
+                          Current authentication state and account details.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="profile-credentials-list">
+                    <div className="cred-row">
+                      <span className="cred-label">Username</span>
+                      <span className="cred-value">vikranth</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Registered Email</span>
+                      <span className="cred-value">vikranth@spinandstay.co</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Account Role</span>
+                      <span className="cred-value">Store Owner (Admin)</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Password Status</span>
+                      <span className="cred-value">
+                        {storedPasswordTime ? (
+                          <span className="badge-custom-pass">
+                            Custom (Set {new Date(storedPasswordTime).toLocaleDateString()})
+                          </span>
+                        ) : (
+                          <span className="badge-default-pass">Default (vikranth@123)</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : activeNav !== 'reports' ? (
           <>
             {/* Title & Action Section */}
             <div className="dashboard-title-row">
@@ -780,14 +1119,21 @@ export default function OwnerDashboard() {
         {/* ================= 4 METRICS KPI CARDS ================= */}
         <div className="kpi-grid">
           {/* Card 1: Available Now */}
-          <div className="kpi-card">
-            <span className="kpi-label">Available now</span>
+          <div className={`kpi-card ${availableCount > 0 ? 'card-available' : 'card-available-empty'}`}>
+            <div className="kpi-avail-top">
+              <span className="kpi-label">Available now</span>
+              <span className="kpi-avail-badge">
+                {availableCount > 0 ? 'Ready' : 'All Busy'}
+              </span>
+            </div>
             <div className="kpi-value-row">
               <span className="kpi-big-num">{availableCount}</span>
               <span className="kpi-total-num">/ {totalMachines} machines</span>
             </div>
             <span className="kpi-footer-text">
-              {availableWashers} washer · {availableDryers} dryers ready
+              {availableCount > 0
+                ? `${availableWashers} washer · ${availableDryers} dryers ready`
+                : '0 machines currently available'}
             </span>
           </div>
 
@@ -1068,10 +1414,9 @@ export default function OwnerDashboard() {
                       <span className="service-text">{c.service}</span>
                     </td>
                     <td>
-                      <div className="session-status-cell">
-                        <span className="in-progress-badge">In progress</span>
-                        <span className="time-rem-text">{c.timeRemaining}</span>
-                      </div>
+                      <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
+                        • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
+                      </span>
                     </td>
                     <td>
                       <button
@@ -1257,7 +1602,7 @@ export default function OwnerDashboard() {
               <div className="report-card">
                 <span className="report-card-label">Session Outcomes</span>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginTop: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#059669' }}>
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#03C988' }}>
                     {reportAnalytics.summary?.completed_count ?? 0}
                   </span>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>Done ·</span>
@@ -1460,8 +1805,8 @@ export default function OwnerDashboard() {
                             <span style={{ fontSize: '12.5px' }}>{c.completedAt}</span>
                           </td>
                           <td>
-                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'active' ? 'chip-blue' : 'chip-orange'}`}>
-                              • {c.status}
+                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
+                              • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
                             </span>
                           </td>
                           <td>
