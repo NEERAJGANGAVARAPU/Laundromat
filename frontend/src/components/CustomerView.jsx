@@ -15,7 +15,8 @@ import {
   ExternalLink,
   ChevronLeft,
   RotateCcw,
-  Shield
+  Shield,
+  AlertCircle
 } from 'lucide-react';
 import '../App.css';
 
@@ -55,6 +56,7 @@ export default function CustomerView() {
   const [name, setName] = useState(() => localStorage.getItem('active_customer_name') || '');
   const [email, setEmail] = useState(() => localStorage.getItem('active_customer_email') || '');
   const [phone, setPhone] = useState(() => localStorage.getItem('active_customer_phone') || '');
+  const [formErrors, setFormErrors] = useState({});
 
   // Backend machines state
   const [availableMachines, setAvailableMachines] = useState([]);
@@ -293,6 +295,51 @@ export default function CustomerView() {
       const perm = await Notification.requestPermission();
       setNotifPermission(perm);
     }
+  };
+
+  const handlePhoneChange = (e) => {
+    // Only allow numeric digits and enforce max 10 digits
+    const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setPhone(digitsOnly);
+    if (formErrors.phone) {
+      setFormErrors((prev) => ({ ...prev, phone: null }));
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (formErrors.email) {
+      setFormErrors((prev) => ({ ...prev, email: null }));
+    }
+  };
+
+  const validateAndProceedToTimer = () => {
+    const errors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    // Validate Email
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      errors.email = 'Please provide an email address for cycle completion notifications.';
+    } else if (!cleanEmail.includes('@') || !emailRegex.test(cleanEmail)) {
+      errors.email = 'Please enter a valid email address containing "@" and a domain (e.g. name@example.com).';
+    }
+
+    // Validate Phone: must be exactly 10 digits
+    const digitsOnly = phone.replace(/\D/g, '');
+    if (!digitsOnly) {
+      errors.phone = 'Please provide your 10-digit phone number.';
+    } else if (digitsOnly.length !== 10) {
+      errors.phone = `Phone number must be exactly 10 digits (currently ${digitsOnly.length}/10 digits entered).`;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+    setStep(2);
   };
 
   const handleStartTimer = async () => {
@@ -557,30 +604,49 @@ export default function CustomerView() {
               {/* Form Input: Email */}
               <div className="input-group">
                 <label className="input-label">Email address</label>
-                <div className="input-card">
-                  <Mail size={20} className="input-icon" />
+                <div className="input-card" style={formErrors.email ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}>
+                  <Mail size={20} className="input-icon" style={formErrors.email ? { color: '#ef4444' } : {}} />
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={handleEmailChange}
                     placeholder="alex.morgan@example.com"
                   />
                 </div>
+                {formErrors.email ? (
+                  <span style={{ color: '#dc2626', fontSize: '12.5px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={14} /> {formErrors.email}
+                  </span>
+                ) : (
+                  <span className="helper-note">We'll email you the moment your cycle finishes.</span>
+                )}
               </div>
 
               {/* Form Input: Phone */}
               <div className="input-group">
-                <label className="input-label">Phone number</label>
-                <div className="input-card">
-                  <Phone size={20} className="input-icon" />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label className="input-label">Phone number (10 digits only)</label>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: phone.length === 10 ? '#059669' : '#64748b' }}>
+                    {phone.length}/10 digits
+                  </span>
+                </div>
+                <div className="input-card" style={formErrors.phone ? { borderColor: '#ef4444', backgroundColor: '#fef2f2' } : {}}>
+                  <Phone size={20} className="input-icon" style={formErrors.phone ? { color: '#ef4444' } : {}} />
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +1 (555) 000-0000"
+                    onChange={handlePhoneChange}
+                    placeholder="e.g. 9876543210"
+                    maxLength={10}
                   />
                 </div>
-                <span className="helper-note">Include your country code if you're visiting from abroad.</span>
+                {formErrors.phone ? (
+                  <span style={{ color: '#dc2626', fontSize: '12.5px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={14} /> {formErrors.phone}
+                  </span>
+                ) : (
+                  <span className="helper-note">Please enter a valid 10-digit mobile number (numbers only).</span>
+                )}
               </div>
             </div>
 
@@ -593,7 +659,7 @@ export default function CustomerView() {
             </div>
 
             {/* Continue button */}
-            <button className="primary-btn royal-blue-btn" onClick={() => setStep(2)}>
+            <button className="primary-btn royal-blue-btn" onClick={validateAndProceedToTimer}>
               <span>Continue to timer</span>
               <ArrowRight size={20} />
             </button>

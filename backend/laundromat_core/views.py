@@ -409,12 +409,14 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
 @permission_classes([AllowAny])
 def reports_analytics_view(request):
     """
-    GET /api/reports/analytics/?date=YYYY-MM-DD
-    Returns day-wise KPIs, machine utilization breakdown, and unique people count.
+    GET /api/reports/analytics/?date=YYYY-MM-DD OR ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+    Returns day-wise or date-range KPIs, machine utilization breakdown, and unique people count.
     """
     from .reports import get_day_wise_analytics
     date_str = request.query_params.get('date', 'all')
-    data = get_day_wise_analytics(date_str)
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    data = get_day_wise_analytics(date_str=date_str, start_date=start_date, end_date=end_date)
     return Response(data, status=status.HTTP_200_OK)
 
 
@@ -422,28 +424,32 @@ def reports_analytics_view(request):
 @permission_classes([AllowAny])
 def reports_csv_view(request):
     """
-    GET /api/reports/csv/?date=YYYY-MM-DD&status=...&search=...
-    Streams a CSV file containing all filtered session records.
+    GET /api/reports/csv/?date=YYYY-MM-DD&start_date=...&end_date=...&status=...&search=...
+    Streams a CSV file containing all filtered session records for the selected date or date range.
     """
     from .reports import export_sessions_csv
     date_str = request.query_params.get('date', 'all')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     status_filter = request.query_params.get('status', 'all')
     search_query = request.query_params.get('search', '')
-    return export_sessions_csv(date_str, status_filter, search_query)
+    return export_sessions_csv(date_str=date_str, start_date=start_date, end_date=end_date, status_filter=status_filter, search_query=search_query)
 
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def reports_pdf_view(request):
     """
-    GET /api/reports/pdf/?date=YYYY-MM-DD&status=...&search=...
-    Generates and streams a formatted PDF report with KPI summaries and table breakdown.
+    GET /api/reports/pdf/?date=YYYY-MM-DD&start_date=...&end_date=...&status=...&search=...
+    Generates and streams a formatted PDF report with KPI summaries, machine breakdown, and table records for date or date range.
     """
     from .reports import export_sessions_pdf
     date_str = request.query_params.get('date', 'all')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     status_filter = request.query_params.get('status', 'all')
     search_query = request.query_params.get('search', '')
-    return export_sessions_pdf(date_str, status_filter, search_query)
+    return export_sessions_pdf(date_str=date_str, start_date=start_date, end_date=end_date, status_filter=status_filter, search_query=search_query)
 
 
 @api_view(['GET'])

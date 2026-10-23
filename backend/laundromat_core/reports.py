@@ -20,9 +20,10 @@ def format_dt(dt, fmt='%Y-%m-%d %H:%M:%S'):
         dt = timezone.localtime(dt)
     return dt.strftime(fmt)
 
-def get_day_wise_analytics(date_str=None):
+def get_day_wise_analytics(date_str=None, start_date=None, end_date=None):
     """
-    Computes day-wise KPIs, machine utilization breakdown, and unique people count.
+    Computes KPIs, machine utilization breakdown, and unique people count.
+    Supports single date (date_str), date range (start_date to end_date), or all dates.
     """
     sync_expired_sessions()
     sessions = LaundrySession.objects.all().select_related('machine')
@@ -36,12 +37,29 @@ def get_day_wise_analytics(date_str=None):
     if today_str not in available_dates:
         available_dates.insert(0, today_str)
 
-    # Filter by specific date if requested (format: YYYY-MM-DD)
-    selected_date = None
-    if date_str and date_str != 'all':
+    period_label = 'All Dates Combined'
+
+    # Filter by date range or specific date if requested
+    if start_date and end_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_d = datetime.strptime(end_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d, started_at__date__lte=e_d)
+            period_label = f"{start_date} to {end_date}"
+        except ValueError:
+            pass
+    elif start_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d)
+            period_label = f"From {start_date}"
+        except ValueError:
+            pass
+    elif date_str and date_str != 'all':
         try:
             selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date=selected_date)
+            period_label = str(selected_date)
         except ValueError:
             pass
 
@@ -101,7 +119,7 @@ def get_day_wise_analytics(date_str=None):
     most_active_machine = machine_breakdown[0]['code'] if machine_breakdown and machine_breakdown[0]['runs_count'] > 0 else 'N/A'
 
     return {
-        'selected_date': date_str or 'all',
+        'selected_date': period_label,
         'available_dates': available_dates,
         'summary': {
             'total_sessions': total_sessions,
@@ -116,19 +134,38 @@ def get_day_wise_analytics(date_str=None):
     }
 
 
-def export_sessions_csv(date_str=None, status_filter=None, search_query=None):
+def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_filter=None, search_query=None):
     """
     Generates and streams an Excel-compatible CSV file of customer sessions and machine usage.
+    Supports single date, date range (start_date to end_date), or all dates.
     """
     sync_expired_sessions()
     sessions = LaundrySession.objects.all().select_related('machine').order_by('-started_at')
 
-    if date_str and date_str != 'all':
+    if start_date and end_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_d = datetime.strptime(end_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d, started_at__date__lte=e_d)
+            filename_suffix = f"{start_date}_to_{end_date}"
+        except ValueError:
+            filename_suffix = "range"
+    elif start_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d)
+            filename_suffix = f"from_{start_date}"
+        except ValueError:
+            filename_suffix = "range"
+    elif date_str and date_str != 'all':
         try:
             d = datetime.strptime(date_str, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date=d)
+            filename_suffix = str(d)
         except ValueError:
-            pass
+            filename_suffix = "date"
+    else:
+        filename_suffix = "all_time"
 
     if status_filter and status_filter != 'all':
         sessions = sessions.filter(status=status_filter)
@@ -143,7 +180,6 @@ def export_sessions_csv(date_str=None, status_filter=None, search_query=None):
             Q(machine__machine_code__icontains=q)
         )
 
-    filename_suffix = date_str if (date_str and date_str != 'all') else 'all_time'
     response = HttpResponse(content_type='text/csv; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="laundromat_sessions_report_{filename_suffix}.csv"'
 
@@ -166,13 +202,14 @@ def export_sessions_csv(date_str=None, status_filter=None, search_query=None):
         local_completed = format_dt(s.completed_at)
         m_code = s.machine_code or (s.machine.machine_code if s.machine else '')
         m_type = s.machine.machine_type if s.machine else ('dryer' if m_code.upper().startswith('D') else 'washer')
+        phone_display = f'="{s.customer_phone}"' if (s.customer_phone and s.customer_phone.strip() and s.customer_phone != 'Not provided') else (s.customer_phone or 'Not provided')
         writer.writerow([
             str(s.id),
             m_code,
             m_type,
             s.customer_name or 'Not specified',
             s.customer_email,
-            s.customer_phone or 'Not provided',
+            phone_display,
             s.duration_minutes,
             local_started,
             local_completed,
@@ -182,21 +219,49 @@ def export_sessions_csv(date_str=None, status_filter=None, search_query=None):
     return response
 
 
-def export_sessions_pdf(date_str=None, status_filter=None, search_query=None):
+def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_filter=None, search_query=None):
     """
     Generates a structured, printable PDF usage report with KPI summary, machine utilization, and session logs.
+    Supports single date, date range (start_date to end_date), or all dates.
     """
-    analytics = get_day_wise_analytics(date_str)
+    analytics = get_day_wise_analytics(date_str=date_str, start_date=start_date, end_date=end_date)
     summary = analytics['summary']
     machine_breakdown = analytics['machine_breakdown']
 
     sessions = LaundrySession.objects.all().select_related('machine').order_by('-started_at')
-    if date_str and date_str != 'all':
+    
+    if start_date and end_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            e_d = datetime.strptime(end_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d, started_at__date__lte=e_d)
+            period_label = f"{start_date} to {end_date}"
+            filename_suffix = f"{start_date}_to_{end_date}"
+        except ValueError:
+            period_label = "Date Range"
+            filename_suffix = "range"
+    elif start_date:
+        try:
+            s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
+            sessions = sessions.filter(started_at__date__gte=s_d)
+            period_label = f"From {start_date}"
+            filename_suffix = f"from_{start_date}"
+        except ValueError:
+            period_label = "Date Range"
+            filename_suffix = "range"
+    elif date_str and date_str != 'all':
         try:
             d = datetime.strptime(date_str, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date=d)
+            period_label = str(d)
+            filename_suffix = str(d)
         except ValueError:
-            pass
+            period_label = str(date_str)
+            filename_suffix = "date"
+    else:
+        period_label = "All Historical Records"
+        filename_suffix = "all_time"
+
     if status_filter and status_filter != 'all':
         sessions = sessions.filter(status=status_filter)
     if search_query:
@@ -268,7 +333,6 @@ def export_sessions_pdf(date_str=None, status_filter=None, search_query=None):
     elements.append(Paragraph("Official Laundry Session & Machine Usage Report", sub_style))
     
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')
-    period_label = date_str if (date_str and date_str != 'all') else 'All Historical Records'
     elements.append(Paragraph(f"Report Generated: {current_time_str} | Date Filter: <b>{period_label}</b>", meta_style))
     elements.append(Spacer(1, 14))
 
@@ -387,7 +451,6 @@ def export_sessions_pdf(date_str=None, status_filter=None, search_query=None):
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
-    filename_suffix = date_str if (date_str and date_str != 'all') else 'all_time'
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="laundromat_report_{filename_suffix}.pdf"'
     return response
