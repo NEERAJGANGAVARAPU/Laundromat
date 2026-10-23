@@ -34,8 +34,9 @@ import {
   UserPlus,
   X,
   RefreshCw,
-  Mail,
-  ArrowRight
+  Lock,
+  KeyRound,
+  ShieldCheck
 } from 'lucide-react';
 import '../OwnerPortal.css';
 
@@ -80,6 +81,18 @@ export default function OwnerDashboard() {
 
   // Selected Machine Details Modal
   const [selectedDetailMachine, setSelectedDetailMachine] = useState(null);
+
+  // Access Settings State (Password Change & Reset)
+  const [currentPasswordInput, setCurrentPasswordInput] = useState('');
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+  const [settingsStatus, setSettingsStatus] = useState(null);
+  const [storedPasswordTime, setStoredPasswordTime] = useState(
+    localStorage.getItem('spin_owner_password_updated_at')
+  );
 
   // Real-time ticker: updates every second so remaining countdown ticks live
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -541,7 +554,17 @@ export default function OwnerDashboard() {
   // Toggle Maintenance handler (Calls Django PATCH /api/machines/<code/ )
   const handleToggleMaintenance = async (machineCode) => {
     const current = machines.find((m) => m.code === machineCode);
-    const nextStatus = current?.status === 'maintenance' ? 'available' : 'maintenance';
+    if (!current) return;
+
+    // Disallow marking maintenance if machine is currently running/occupied
+    if (current.status === 'occupied' || current.status === 'in_use' || current.timeRemaining > 0) {
+      alert(
+        `⚠️ Invalid Action: ${current.type === 'washer' ? 'Washing machine' : 'Dryer'} ${machineCode} is currently running!\n\nYou cannot mark a machine as under maintenance while a customer cycle is active.`
+      );
+      return;
+    }
+
+    const nextStatus = current.status === 'maintenance' ? 'available' : 'maintenance';
 
     try {
       await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
@@ -557,7 +580,23 @@ export default function OwnerDashboard() {
 
   // Remove/Deactivate Machine handler (Calls Django DELETE /api/machines/<code/ )
   const handleRemoveMachine = async (machineCode) => {
-    if (!window.confirm(`Are you sure you want to deactivate machine ${machineCode}?`)) return;
+    const current = machines.find((m) => m.code === machineCode);
+
+    // Prevent deleting an active machine
+    if (current && (current.status === 'occupied' || current.status === 'in_use' || current.timeRemaining > 0)) {
+      alert(`⚠️ Invalid Action: Machine ${machineCode} is currently running! You cannot delete a machine while a session is active.`);
+      return;
+    }
+
+    // First confirmation
+    const firstConfirm = window.confirm(`Are you sure you want to delete machine ${machineCode} from the floor?`);
+    if (!firstConfirm) return;
+
+    // Second / Reconfirmation: "Are you willing to do that?"
+    const secondConfirm = window.confirm(
+      `⚠️ Double Confirmation Required:\n\nAre you willing to do that?\n\nThis will permanently delete machine ${machineCode} and its associated QR code. Click OK to confirm or Cancel to keep the machine.`
+    );
+    if (!secondConfirm) return;
 
     try {
       await fetch(`http://${apiHost}:8000/api/machines/${machineCode}/`, {
@@ -567,8 +606,10 @@ export default function OwnerDashboard() {
       if (selectedQrMachine === machineCode) {
         setSelectedQrMachine(machines[0]?.code || 'W-1');
       }
+      alert(`Machine ${machineCode} has been successfully deleted.`);
     } catch (err) {
       console.warn('Failed to deactivate machine on backend:', err);
+      alert(`Failed to delete machine: ${err.message}`);
     }
   };
 
@@ -582,6 +623,82 @@ export default function OwnerDashboard() {
   // Print QR Label
   const handlePrintLabel = () => {
     window.print();
+  };
+
+  // Change Owner Password Handler
+  const handleChangePassword = (e) => {
+    e.preventDefault();
+    setSettingsStatus(null);
+
+    const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
+
+    if (currentPasswordInput !== storedPass) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'Current password is incorrect. Please verify your existing password.'
+      });
+      return;
+    }
+
+    if (newPasswordInput.length < 6) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password must be at least 6 characters long.'
+      });
+      return;
+    }
+
+    if (newPasswordInput !== confirmPasswordInput) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password and confirmation password do not match.'
+      });
+      return;
+    }
+
+    if (newPasswordInput === storedPass) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'New password cannot be the same as your current password.'
+      });
+      return;
+    }
+
+    // Save new password
+    const nowIso = new Date().toISOString();
+    localStorage.setItem('spin_owner_password', newPasswordInput);
+    localStorage.setItem('spin_owner_password_updated_at', nowIso);
+    setStoredPasswordTime(nowIso);
+
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+
+    setSettingsStatus({
+      type: 'success',
+      message: 'Password successfully changed! Your new password is now active.'
+    });
+  };
+
+  // Reset Owner Password to Default Handler
+  const handleResetPassword = () => {
+    const isConfirmed = window.confirm(
+      'Are you sure you want to reset your owner portal password to the system default (vikranth@123)?'
+    );
+    if (!isConfirmed) return;
+
+    localStorage.setItem('spin_owner_password', 'vikranth@123');
+    localStorage.removeItem('spin_owner_password_updated_at');
+    setStoredPasswordTime(null);
+
+    setCurrentPasswordInput('');
+    setNewPasswordInput('');
+    setConfirmPasswordInput('');
+
+    setSettingsStatus({
+      type: 'success',
+      message: 'Password has been reset to default: vikranth@123'
+    });
   };
 
   // Metrics calculation
@@ -762,9 +879,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'qr' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('qr');
-              const el = document.getElementById('qr-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('qr-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <QrCode size={18} />
@@ -774,9 +893,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'machines' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('machines');
-              const el = document.getElementById('machines-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('machines-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <Layers size={18} />
@@ -787,9 +908,11 @@ export default function OwnerDashboard() {
           <button
             className={`nav-item-btn ${activeNav === 'customers' ? 'active' : ''}`}
             onClick={() => {
-              setActiveNav('customers');
-              const el = document.getElementById('sessions-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
+              setActiveNav('overview');
+              setTimeout(() => {
+                const el = document.getElementById('sessions-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 50);
             }}
           >
             <Users size={18} />
@@ -837,12 +960,19 @@ export default function OwnerDashboard() {
             <span>Owner portal</span>
             <span className="crumb-sep">/</span>
             <span className="crumb-current">
-              {activeNav === 'reports' ? 'Reports & Analytics' : activeNav === 'activity' ? 'Activity & Audit Trail' : 'Overview'}
+              {activeNav === 'reports'
+                ? 'Reports & Analytics'
+                : activeNav === 'settings' || activeNav === 'security'
+                  ? 'Access Settings'
+                  : 'Overview'}
             </span>
           </div>
 
           <div className="topbar-right">
-            <span className="demo-pill">• Live portal</span>
+            <span className="demo-pill">
+              <span className="live-dot-pulse"></span>
+              Live portal
+            </span>
             <span className="current-date-text">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -857,475 +987,653 @@ export default function OwnerDashboard() {
           </div>
         </header>
 
-        {activeNav !== 'reports' ? (
-          <>
-            {/* Title & Action Section */}
-            <div className="dashboard-title-row">
-          <div>
-            <h1 className="dash-heading">The day, at a glance.</h1>
-            <p className="dash-subheading">
-              Main Street overview - {totalMachines} machines across wash and dry.
-            </p>
-          </div>
-
-          <button className="add-machine-btn" onClick={() => setIsAddModalOpen(true)}>
-            <Plus size={18} />
-            <span>Add machine</span>
-          </button>
-        </div>
-
-        {/* ================= 4 METRICS KPI CARDS ================= */}
-        <div className="kpi-grid">
-          {/* Card 1: Available Now */}
-          <div className="kpi-card">
-            <span className="kpi-label">Available now</span>
-            <div className="kpi-value-row">
-              <span className="kpi-big-num">{availableCount}</span>
-              <span className="kpi-total-num">/ {totalMachines} machines</span>
-            </div>
-            <span className="kpi-footer-text">
-              {availableWashers} washer · {availableDryers} dryers ready
-            </span>
-          </div>
-
-          {/* Card 2: Washer Occupancy */}
-          <div className="kpi-card">
-            <span className="kpi-label">Washer occupancy</span>
-            <div className="kpi-value-row">
-              <span className="kpi-big-num">{occupiedWashers}</span>
-              <span className="kpi-total-num">/ {washers.length} occupied</span>
-            </div>
-            <div className="segmented-bar">
-              {washers.length > 0 ? (
-                washers.map((w) => (
-                  <div
-                    key={w.code}
-                    title={`${w.code}: ${w.status === 'occupied' ? 'Occupied' : w.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
-                    className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                      }`}
-                  />
-                ))
-              ) : (
-                <div className="bar-chunk chunk-light" title="No washers configured" />
-              )}
-            </div>
-            <span className="kpi-footer-text">
-              {availableWashers} available · {maintenanceWashers} maintenance
-            </span>
-          </div>
-
-          {/* Card 3: Dryer Occupancy */}
-          <div className="kpi-card">
-            <span className="kpi-label">Dryer occupancy</span>
-            <div className="kpi-value-row">
-              <span className="kpi-big-num">{occupiedDryers}</span>
-              <span className="kpi-total-num">/ {dryers.length} occupied</span>
-            </div>
-            <div className="segmented-bar">
-              {dryers.length > 0 ? (
-                dryers.map((d) => (
-                  <div
-                    key={d.code}
-                    title={`${d.code}: ${d.status === 'occupied' ? 'Occupied' : d.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
-                    className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                      }`}
-                  />
-                ))
-              ) : (
-                <div className="bar-chunk chunk-light" title="No dryers configured" />
-              )}
-            </div>
-            <span className="kpi-footer-text">
-              {availableDryers} available · {maintenanceDryers} maintenance
-            </span>
-          </div>
-
-          {/* Card 4: Active Customers */}
-          <div className="kpi-card">
-            <span className="kpi-label">Active customers</span>
-            <div className="kpi-value-row">
-              <span className="kpi-big-num">{occupiedCount}</span>
-              <span className="kpi-total-num">sessions</span>
-            </div>
-            <span className="kpi-footer-text">
-              {occupiedWashers} washing · {occupiedDryers} drying
-            </span>
-          </div>
-        </div>
-
-        {/* ================= MACHINE FLOOR SECTION ================= */}
-        <section id="machines-section" className="dash-section">
-          <div className="section-header-row">
-            <div className="section-title-group">
-              <h2 className="section-title">Machine floor</h2>
-              <span className="section-count-badge">{totalMachines} machines</span>
-            </div>
-
-            <div className="status-legend">
-              <span className="legend-item"><span className="legend-dot dot-green" /> Available {availableCount}</span>
-              <span className="legend-item"><span className="legend-dot dot-blue" /> Occupied {occupiedCount}</span>
-              <span className="legend-item"><span className="legend-dot dot-orange" /> Maintenance {maintenanceCount}</span>
-            </div>
-          </div>
-
-          {/* Filter Bar */}
-          <div className="machine-filter-bar">
-            {/* Type tabs */}
-            <div className="type-pills-wrap">
-              <button
-                className={`type-pill ${typeFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setTypeFilter('all')}
-              >
-                All machines
-              </button>
-              <button
-                className={`type-pill ${typeFilter === 'washer' ? 'active' : ''}`}
-                onClick={() => setTypeFilter('washer')}
-              >
-                Washers
-              </button>
-              <button
-                className={`type-pill ${typeFilter === 'dryer' ? 'active' : ''}`}
-                onClick={() => setTypeFilter('dryer')}
-              >
-                Dryers
-              </button>
-            </div>
-
-            {/* Search Input */}
-            <div className="dash-search-box">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search machine or customer"
-              />
-            </div>
-
-            {/* Status Filter dropdown */}
-            <div className="status-filter-wrap">
-              <Filter size={15} />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="status-select"
-              >
-                <option value="all">All statuses</option>
-                <option value="available">Available</option>
-                <option value="occupied">Occupied</option>
-                <option value="maintenance">Maintenance</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Machine Floor Grid */}
-          <div className="machine-cards-grid">
-            {filteredMachines.map((m) => {
-              const timer = getMachineTimer(m);
-
-              return (
-                <div key={m.code} className="machine-floor-card">
-                  <div className="floor-card-top">
-                    <div className="code-badge-wrap">
-                      <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
-                      <span className="machine-code-text">{m.code}</span>
-                    </div>
-
-                    <div className="floor-card-top-right">
-                      {m.status === 'occupied' && (
-                        <span className="status-chip chip-blue">• Occupied</span>
-                      )}
-                      {m.status === 'available' && (
-                        <span className="status-chip chip-green">• Available</span>
-                      )}
-                      {m.status === 'maintenance' && (
-                        <span className="status-chip chip-orange">• Maintenance</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="floor-card-body">
-                    {m.status === 'occupied' && (
-                      <>
-                        <h4 className="floor-primary-text">{timer.label}</h4>
-                        <p className="floor-sub-text">{timer.customerName || m.customer || 'Active session'}</p>
-                      </>
-                    )}
-                    {m.status === 'available' && (
-                      <>
-                        <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
-                        <p className="floor-sub-text">No customer assigned</p>
-                      </>
-                    )}
-                    {m.status === 'maintenance' && (
-                      <>
-                        <h4 className="floor-primary-text text-amber">Out of service</h4>
-                        <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="floor-card-actions">
-                    <button
-                      type="button"
-                      className="floor-btn-action floor-btn-qr"
-                      onClick={() => {
-                        setSelectedQrMachine(m.code);
-                        const el = document.getElementById('qr-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      title={`Generate & Print QR Code for ${m.code}`}
-                    >
-                      <QrCode size={15} />
-                      <span>Generate QR</span>
-                    </button>
-
-                    <div className="floor-secondary-actions">
-                      <button
-                        type="button"
-                        className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
-                        onClick={() => handleToggleMaintenance(m.code)}
-                        title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
-                      >
-                        {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
-                        <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="floor-btn-delete"
-                        onClick={() => handleRemoveMachine(m.code)}
-                        title={`Remove machine ${m.code}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </div>
+        {activeNav === 'settings' || activeNav === 'security' ? (
+          /* ================= ACCESS & SECURITY SETTINGS (PASSWORD & CREDENTIALS) ================= */
+          <div className="settings-view-container">
+            <div className="settings-header-card">
+              <div className="settings-header-left">
+                <div className="settings-icon-bubble">
+                  <Sliders size={24} color="#028a5d" />
                 </div>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* ================= CUSTOMER SESSIONS SECTION ================= */}
-        <section id="sessions-section" className="dash-section">
-          <div className="section-header-row">
-            <div className="section-title-group">
-              <h2 className="section-title">Customer sessions</h2>
-              <span className="active-sessions-tag">• {occupiedCount} active</span>
-            </div>
-
-            <span className="masked-toggle-note">
-              Contacts masked by default · Reveal per customer
-            </span>
-          </div>
-
-          <div className="table-wrapper">
-            <table className="sessions-table">
-              <thead>
-                <tr>
-                  <th>CUSTOMER</th>
-                  <th>CONTACT</th>
-                  <th>MACHINE</th>
-                  <th>SERVICE</th>
-                  <th>SESSION STATUS</th>
-                  <th>EMAIL NOTIFICATION</th>
-                  <th>DETAILS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.map((c) => (
-                  <tr key={c.id}>
-                    <td>
-                      <div className="cust-cell">
-                        <div className="cust-avatar">{c.initials}</div>
-                        <span className="cust-name">{c.name}</span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="contact-cell">
-                        <span className="contact-email">
-                          {c.revealed ? c.realEmail : c.email}
-                        </span>
-                        <span className="contact-phone">
-                          {c.revealed ? c.realPhone : c.phone}
-                        </span>
-                        <button
-                          className="reveal-btn"
-                          onClick={() => toggleContactReveal(c.id)}
-                        >
-                          {c.revealed ? 'Hide' : 'Reveal'}
-                        </button>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="machine-tag-cell">{c.machine}</span>
-                    </td>
-                    <td>
-                      <span className="service-text">{c.service}</span>
-                    </td>
-                    <td>
-                      {c.status === 'completed' ? (
-                        <span className="status-chip chip-green">
-                          • Completed
-                        </span>
-                      ) : c.status === 'active' ? (
-                        <div className="session-status-cell">
-                          <span className="in-progress-badge">In progress</span>
-                          <span className="time-rem-text">{c.timeRemaining}</span>
-                        </div>
-                      ) : (
-                        <span className="status-chip chip-orange">
-                          • {c.status}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {c.status === 'completed' ? (
-                        c.emailSent ? (
-                          <span className="notif-badge sent" title={`Email dispatched to ${c.realEmail}`}>
-                            <Mail size={12} /> Sent
-                          </span>
-                        ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
-                          <span className="notif-badge walkin" title="Walk-in (No email provided)">
-                            Walk-in
-                          </span>
-                        ) : (
-                          <span className="notif-badge pending" title="Email not dispatched for this session">
-                            <Mail size={12} /> Not Sent
-                          </span>
-                        )
-                      ) : c.status === 'active' ? (
-                        <span className="notif-badge active" title="Scheduled upon cycle finish">
-                          <Clock size={12} /> Scheduled
-                        </span>
-                      ) : (
-                        <span className="notif-badge cancelled" title="Session cancelled">
-                          Cancelled
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        className="view-details-link"
-                        onClick={() => alert(`Customer Session for ${c.name}\nMachine: ${c.machine}\nEmail: ${c.realEmail}\nPhone: ${c.realPhone}`)}
-                      >
-                        View →
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="table-caption-note">Showing all {customers.length} customer records ({occupiedCount} currently active)</p>
-        </section>
-
-        {/* ================= QR LABELS SECTION ================= */}
-        <section id="qr-section" className="dash-section qr-section-box">
-          <div className="section-header-row">
-            <div className="section-title-group">
-              <h2 className="section-title">QR labels</h2>
-              <span className="section-count-badge">{totalMachines} machines</span>
-            </div>
-            <span className="static-note">Live scannable QR generation for physical machines</span>
-          </div>
-
-          <div className="qr-selector-row">
-            <label className="qr-select-label">Select machine to generate QR:</label>
-            <div className="qr-select-box">
-              <select
-                value={selectedQrMachine}
-                onChange={(e) => setSelectedQrMachine(e.target.value)}
-                className="qr-dropdown"
-              >
-                {machines.map((m) => (
-                  <option key={m.code} value={m.code}>
-                    {m.code} - {m.type === 'washer' ? 'Washer' : 'Dryer'} ({m.status})
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Printable Label Card matching Image 2 */}
-          <div className="printable-qr-card" id="printable-qr-area">
-            <div className="qr-card-header">
-              <div className="qr-machine-info">
-                <span className="qr-machine-icon">
-                  {selectedMachineObj?.type === 'washer' ? '🧺' : '🌀'}
-                </span>
                 <div>
-                  <h3 className="qr-machine-code">{selectedMachineObj?.code}</h3>
-                  <p className="qr-machine-subtitle">
-                    {selectedMachineObj?.note || `${selectedMachineObj?.type} machine`} · ready for print
+                  <h1 className="settings-title">Access &amp; Security Settings</h1>
+                  <p className="settings-subtitle">
+                    Manage owner account credentials, reset authentication keys, and update portal sign-in password.
                   </p>
                 </div>
               </div>
-
-              <span className={`status-chip ${selectedMachineObj?.status === 'available' ? 'chip-green' : selectedMachineObj?.status === 'occupied' ? 'chip-blue' : 'chip-orange'}`}>
-                • {selectedMachineObj?.status}
+              <span className="status-chip chip-green">
+                • Protected Session
               </span>
             </div>
 
-            <div className="qr-card-body">
-              {/* QR Image */}
-              <div className="qr-image-wrapper">
-                {qrDataUrl ? (
-                  <img src={qrDataUrl} alt={`QR for ${selectedQrMachine}`} className="actual-qr-image" />
+            {settingsStatus && (
+              <div className={`settings-alert-banner ${settingsStatus.type === 'success' ? 'alert-success' : 'alert-error'}`}>
+                {settingsStatus.type === 'success' ? (
+                  <CheckCircle size={18} className="alert-icon-success" />
                 ) : (
-                  <div className="qr-placeholder">Generating...</div>
+                  <AlertTriangle size={18} className="alert-icon-error" />
                 )}
+                <span>{settingsStatus.message}</span>
+                <button
+                  type="button"
+                  className="alert-close-btn"
+                  onClick={() => setSettingsStatus(null)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <div className="settings-grid">
+              {/* Card 1: Change Password Form */}
+              <div className="settings-card">
+                <div className="settings-card-header">
+                  <div className="settings-card-icon-title">
+                    <Lock size={20} className="card-hdr-icon" />
+                    <div>
+                      <h3 className="settings-card-title">Change Password</h3>
+                      <p className="settings-card-desc">
+                        Update your portal password to keep your store management secure.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="settings-form">
+                  <div className="settings-field">
+                    <label className="settings-label">Current Password</label>
+                    <div className="settings-input-wrapper">
+                      <Lock size={16} className="settings-field-icon" />
+                      <input
+                        type={showCurrentPass ? 'text' : 'password'}
+                        placeholder="Enter current password"
+                        value={currentPasswordInput}
+                        onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowCurrentPass(!showCurrentPass)}
+                      >
+                        {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label">New Password</label>
+                    <div className="settings-input-wrapper">
+                      <KeyRound size={16} className="settings-field-icon" />
+                      <input
+                        type={showNewPass ? 'text' : 'password'}
+                        placeholder="At least 6 characters"
+                        value={newPasswordInput}
+                        onChange={(e) => setNewPasswordInput(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                      >
+                        {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-field">
+                    <label className="settings-label">Confirm New Password</label>
+                    <div className="settings-input-wrapper">
+                      <KeyRound size={16} className="settings-field-icon" />
+                      <input
+                        type={showConfirmPass ? 'text' : 'password'}
+                        placeholder="Re-type new password"
+                        value={confirmPasswordInput}
+                        onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        className="settings-eye-btn"
+                        onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      >
+                        {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="settings-action-row">
+                    <button type="submit" className="btn-save-settings">
+                      <Check size={16} />
+                      <span>Update Password</span>
+                    </button>
+                  </div>
+                </form>
               </div>
 
-              {/* QR Info */}
-              <div className="qr-text-info">
-                <span className="qr-dest-label">Customer check-in destination:</span>
-                <h4 className="qr-url-text" style={{ wordBreak: 'break-all' }}>
-                  {`http://${(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? (detectedLanIp || window.location.hostname) : window.location.hostname}:${window.location.port || '5173'}/?machine=${selectedMachineObj?.code}`}
-                </h4>
-                <p className="qr-instruction-text">
-                  Customers scan this physical QR label with their phone camera to instantly start a session on {selectedMachineObj?.code}.
-                </p>
+              {/* Card 2: Reset Password & Credentials Overview */}
+              <div className="settings-side-col">
+                <div className="settings-card">
+                  <div className="settings-card-header">
+                    <div className="settings-card-icon-title">
+                      <RefreshCw size={20} className="card-hdr-icon text-orange" />
+                      <div>
+                        <h3 className="settings-card-title">Reset Password</h3>
+                        <p className="settings-card-desc">
+                          Need to restore default credentials? Reset your account password back to default.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="reset-card-body">
+                    <div className="default-pass-box">
+                      <span className="default-pass-label">System Default Password:</span>
+                      <code className="default-pass-code">vikranth@123</code>
+                    </div>
+
+                    <p className="reset-hint-text">
+                      Resetting will immediately restore the password to <strong>vikranth@123</strong>.
+                    </p>
+
+                    <button
+                      type="button"
+                      className="btn-reset-password"
+                      onClick={handleResetPassword}
+                    >
+                      <RefreshCw size={15} />
+                      <span>Reset to Default Password</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-card">
+                  <div className="settings-card-header">
+                    <div className="settings-card-icon-title">
+                      <ShieldCheck size={20} className="card-hdr-icon text-green" />
+                      <div>
+                        <h3 className="settings-card-title">Owner Credentials</h3>
+                        <p className="settings-card-desc">
+                          Current authentication state and account details.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="profile-credentials-list">
+                    <div className="cred-row">
+                      <span className="cred-label">Username</span>
+                      <span className="cred-value">vikranth</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Registered Email</span>
+                      <span className="cred-value">vikranth@spinandstay.co</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Account Role</span>
+                      <span className="cred-value">Store Owner (Admin)</span>
+                    </div>
+                    <div className="cred-row">
+                      <span className="cred-label">Password Status</span>
+                      <span className="cred-value">
+                        {storedPasswordTime ? (
+                          <span className="badge-custom-pass">
+                            Custom (Set {new Date(storedPasswordTime).toLocaleDateString()})
+                          </span>
+                        ) : (
+                          <span className="badge-default-pass">Default (vikranth@123)</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="qr-card-footer">
-              <button
-                className="qr-action-btn primary-qr-btn"
-                onClick={() => {
-                  alert(`QR Code regenerated for ${selectedMachineObj?.code}! Ready for download and sticker printing.`);
-                }}
-              >
-                <Plus size={16} />
-                <span>Generate QR</span>
-              </button>
-
-              <a
-                href={qrDataUrl}
-                download={`spin-and-stay-${selectedMachineObj?.code}.png`}
-                className="qr-action-btn secondary-qr-btn"
-              >
-                <Download size={16} />
-                <span>Download label</span>
-              </a>
-
-              <button
-                className="qr-action-btn outline-qr-btn"
-                onClick={handlePrintLabel}
-              >
-                <Printer size={16} />
-                <span>Print label</span>
-              </button>
-
-              <span className="qr-footer-hint">
-                Labels print at 3.5" x 4" sticker size with wash instructions.
-              </span>
             </div>
           </div>
-        </section>
+        ) : activeNav !== 'reports' ? (
+          <>
+            {/* Title & Action Section */}
+            <div className="dashboard-title-row">
+              <div>
+                <h1 className="dash-heading">The day, at a glance.</h1>
+                <p className="dash-subheading">
+                  Main Street overview - {totalMachines} machines across wash and dry.
+                </p>
+              </div>
+
+              <button className="add-machine-btn" onClick={() => setIsAddModalOpen(true)}>
+                <Plus size={18} />
+                <span>Add machine</span>
+              </button>
+            </div>
+
+            {/* ================= 4 METRICS KPI CARDS ================= */}
+            <div className="kpi-grid">
+              {/* Card 1: Available Now */}
+              <div className={`kpi-card ${availableCount > 0 ? 'card-available' : 'card-available-empty'}`}>
+                <div className="kpi-avail-top">
+                  <span className="kpi-label">Available now</span>
+                  <span className="kpi-avail-badge">
+                    {availableCount > 0 ? 'Ready' : 'All Busy'}
+                  </span>
+                </div>
+                <div className="kpi-value-row">
+                  <span className="kpi-big-num">{availableCount}</span>
+                  <span className="kpi-total-num">/ {totalMachines} machines</span>
+                </div>
+                <span className="kpi-footer-text">
+                  {availableCount > 0
+                    ? `${availableWashers} washer · ${availableDryers} dryers ready`
+                    : '0 machines currently available'}
+                </span>
+              </div>
+
+              {/* Card 2: Washer Occupancy */}
+              <div className="kpi-card">
+                <span className="kpi-label">Washer occupancy</span>
+                <div className="kpi-value-row">
+                  <span className="kpi-big-num">{occupiedWashers}</span>
+                  <span className="kpi-total-num">/ {washers.length} occupied</span>
+                </div>
+                <div className="segmented-bar">
+                  {washers.length > 0 ? (
+                    washers.map((w) => (
+                      <div
+                        key={w.code}
+                        title={`${w.code}: ${w.status === 'occupied' ? 'Occupied' : w.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                        className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                          }`}
+                      />
+                    ))
+                  ) : (
+                    <div className="bar-chunk chunk-light" title="No washers configured" />
+                  )}
+                </div>
+                <span className="kpi-footer-text">
+                  {availableWashers} available · {maintenanceWashers} maintenance
+                </span>
+              </div>
+
+              {/* Card 3: Dryer Occupancy */}
+              <div className="kpi-card">
+                <span className="kpi-label">Dryer occupancy</span>
+                <div className="kpi-value-row">
+                  <span className="kpi-big-num">{occupiedDryers}</span>
+                  <span className="kpi-total-num">/ {dryers.length} occupied</span>
+                </div>
+                <div className="segmented-bar">
+                  {dryers.length > 0 ? (
+                    dryers.map((d) => (
+                      <div
+                        key={d.code}
+                        title={`${d.code}: ${d.status === 'occupied' ? 'Occupied' : d.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                        className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                          }`}
+                      />
+                    ))
+                  ) : (
+                    <div className="bar-chunk chunk-light" title="No dryers configured" />
+                  )}
+                </div>
+                <span className="kpi-footer-text">
+                  {availableDryers} available · {maintenanceDryers} maintenance
+                </span>
+              </div>
+
+              {/* Card 4: Active Customers */}
+              <div className="kpi-card">
+                <span className="kpi-label">Active customers</span>
+                <div className="kpi-value-row">
+                  <span className="kpi-big-num">{occupiedCount}</span>
+                  <span className="kpi-total-num">sessions</span>
+                </div>
+                <span className="kpi-footer-text">
+                  {occupiedWashers} washing · {occupiedDryers} drying
+                </span>
+              </div>
+            </div>
+
+            {/* ================= MACHINE FLOOR SECTION ================= */}
+            <section id="machines-section" className="dash-section">
+              <div className="section-header-row">
+                <div className="section-title-group">
+                  <h2 className="section-title">Machine floor</h2>
+                  <span className="section-count-badge">{totalMachines} machines</span>
+                </div>
+
+                <div className="status-legend">
+                  <span className="legend-item"><span className="legend-dot dot-green" /> Available {availableCount}</span>
+                  <span className="legend-item"><span className="legend-dot dot-blue" /> Occupied {occupiedCount}</span>
+                  <span className="legend-item"><span className="legend-dot dot-orange" /> Maintenance {maintenanceCount}</span>
+                </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className="machine-filter-bar">
+                {/* Type tabs */}
+                <div className="type-pills-wrap">
+                  <button
+                    className={`type-pill ${typeFilter === 'all' ? 'active' : ''}`}
+                    onClick={() => setTypeFilter('all')}
+                  >
+                    All machines
+                  </button>
+                  <button
+                    className={`type-pill ${typeFilter === 'washer' ? 'active' : ''}`}
+                    onClick={() => setTypeFilter('washer')}
+                  >
+                    Washers
+                  </button>
+                  <button
+                    className={`type-pill ${typeFilter === 'dryer' ? 'active' : ''}`}
+                    onClick={() => setTypeFilter('dryer')}
+                  >
+                    Dryers
+                  </button>
+                </div>
+
+                {/* Search Input */}
+                <div className="dash-search-box">
+                  <Search size={16} className="search-icon" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search machine or customer"
+                  />
+                </div>
+
+                {/* Status Filter dropdown */}
+                <div className="status-filter-wrap">
+                  <Filter size={15} />
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="status-select"
+                  >
+                    <option value="all">All statuses</option>
+                    <option value="available">Available</option>
+                    <option value="occupied">Occupied</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Machine Floor Grid */}
+              <div className="machine-cards-grid">
+                {filteredMachines.map((m) => {
+                  const timer = getMachineTimer(m);
+
+                  return (
+                    <div key={m.code} className="machine-floor-card">
+                      <div className="floor-card-top">
+                        <div className="code-badge-wrap">
+                          <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
+                          <span className="machine-code-text">{m.code}</span>
+                        </div>
+
+                        <div className="floor-card-top-right">
+                          {m.status === 'occupied' && (
+                            <span className="status-chip chip-blue">• Occupied</span>
+                          )}
+                          {m.status === 'available' && (
+                            <span className="status-chip chip-green">• Available</span>
+                          )}
+                          {m.status === 'maintenance' && (
+                            <span className="status-chip chip-orange">• Maintenance</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="floor-card-body">
+                        {m.status === 'occupied' && (
+                          <>
+                            <h4 className="floor-primary-text">{timer.label}</h4>
+                            <p className="floor-sub-text">{timer.customerName || m.customer || 'Active session'}</p>
+                          </>
+                        )}
+                        {m.status === 'available' && (
+                          <>
+                            <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
+                            <p className="floor-sub-text">No customer assigned</p>
+                          </>
+                        )}
+                        {m.status === 'maintenance' && (
+                          <>
+                            <h4 className="floor-primary-text text-amber">Out of service</h4>
+                            <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
+                          </>
+                        )}
+                      </div>
+
+                      <div className="floor-card-actions">
+                        <button
+                          type="button"
+                          className="floor-btn-action floor-btn-qr"
+                          onClick={() => {
+                            setSelectedQrMachine(m.code);
+                            const el = document.getElementById('qr-section');
+                            if (el) el.scrollIntoView({ behavior: 'smooth' });
+                          }}
+                          title={`Generate & Print QR Code for ${m.code}`}
+                        >
+                          <QrCode size={15} />
+                          <span>Generate QR</span>
+                        </button>
+
+                        <div className="floor-secondary-actions">
+                          <button
+                            type="button"
+                            className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
+                            onClick={() => handleToggleMaintenance(m.code)}
+                            title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                          >
+                            {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
+                            <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="floor-btn-delete"
+                            onClick={() => handleRemoveMachine(m.code)}
+                            title={`Remove machine ${m.code}`}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* ================= CUSTOMER SESSIONS SECTION ================= */}
+            <section id="sessions-section" className="dash-section">
+              <div className="section-header-row">
+                <div className="section-title-group">
+                  <h2 className="section-title">Customer sessions</h2>
+                  <span className="active-sessions-tag">• {occupiedCount} active</span>
+                </div>
+
+                <span className="masked-toggle-note">
+                  Contacts masked by default · Reveal per customer
+                </span>
+              </div>
+
+              <div className="table-wrapper">
+                <table className="sessions-table">
+                  <thead>
+                    <tr>
+                      <th>CUSTOMER</th>
+                      <th>CONTACT</th>
+                      <th>MACHINE</th>
+                      <th>SERVICE</th>
+                      <th>SESSION STATUS</th>
+                      <th>EMAIL NOTIFICATION</th>
+                      <th>DETAILS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map((c) => (
+                      <tr key={c.id}>
+                        <td>
+                          <div className="cust-cell">
+                            <div className="cust-avatar">{c.initials}</div>
+                            <span className="cust-name">{c.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="contact-cell">
+                            <span className="contact-email">
+                              {c.revealed ? c.realEmail : c.email}
+                            </span>
+                            <span className="contact-phone">
+                              {c.revealed ? c.realPhone : c.phone}
+                            </span>
+                            <button
+                              className="reveal-btn"
+                              onClick={() => toggleContactReveal(c.id)}
+                            >
+                              {c.revealed ? 'Hide' : 'Reveal'}
+                            </button>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="machine-tag-cell">{c.machine}</span>
+                        </td>
+                        <td>
+                          <span className="service-text">{c.service}</span>
+                        </td>
+                        <td>
+                          <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
+                            • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
+                          </span>
+                        </td>
+                        <td>
+                          <button
+                            className="view-details-link"
+                            onClick={() => alert(`Customer Session for ${c.name}\nMachine: ${c.machine}\nEmail: ${c.realEmail}\nPhone: ${c.realPhone}`)}
+                          >
+                            View →
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="table-caption-note">Showing all {customers.length} customer records ({occupiedCount} currently active)</p>
+            </section>
+
+            {/* ================= QR LABELS SECTION ================= */}
+            <section id="qr-section" className="dash-section qr-section-box">
+              <div className="section-header-row">
+                <div className="section-title-group">
+                  <h2 className="section-title">QR labels</h2>
+                  <span className="section-count-badge">{totalMachines} machines</span>
+                </div>
+                <span className="static-note">Live scannable QR generation for physical machines</span>
+              </div>
+
+              <div className="qr-selector-row">
+                <label className="qr-select-label">Select machine to generate QR:</label>
+                <div className="qr-select-box">
+                  <select
+                    value={selectedQrMachine}
+                    onChange={(e) => setSelectedQrMachine(e.target.value)}
+                    className="qr-dropdown"
+                  >
+                    {machines.map((m) => (
+                      <option key={m.code} value={m.code}>
+                        {m.code} - {m.type === 'washer' ? 'Washer' : 'Dryer'} ({m.status})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Printable Label Card matching Image 2 */}
+              <div className="printable-qr-card" id="printable-qr-area">
+                <div className="qr-card-header">
+                  <div className="qr-machine-info">
+                    <span className="qr-machine-icon">
+                      {selectedMachineObj?.type === 'washer' ? '🧺' : '🌀'}
+                    </span>
+                    <div>
+                      <h3 className="qr-machine-code">{selectedMachineObj?.code}</h3>
+                      <p className="qr-machine-subtitle">
+                        {selectedMachineObj?.note || `${selectedMachineObj?.type} machine`} · ready for print
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className={`status-chip ${selectedMachineObj?.status === 'available' ? 'chip-green' : selectedMachineObj?.status === 'occupied' ? 'chip-blue' : 'chip-orange'}`}>
+                    • {selectedMachineObj?.status}
+                  </span>
+                </div>
+
+                <div className="qr-card-body">
+                  {/* QR Image */}
+                  <div className="qr-image-wrapper">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt={`QR for ${selectedQrMachine}`} className="actual-qr-image" />
+                    ) : (
+                      <div className="qr-placeholder">Generating...</div>
+                    )}
+                  </div>
+
+                  {/* QR Info */}
+                  <div className="qr-text-info">
+                    <span className="qr-dest-label">Customer check-in destination:</span>
+                    <h4 className="qr-url-text" style={{ wordBreak: 'break-all' }}>
+                      {`http://${(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? (detectedLanIp || window.location.hostname) : window.location.hostname}:${window.location.port || '5173'}/?machine=${selectedMachineObj?.code}`}
+                    </h4>
+                    <p className="qr-instruction-text">
+                      Customers scan this physical QR label with their phone camera to instantly start a session on {selectedMachineObj?.code}.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="qr-card-footer">
+                  <button
+                    className="qr-action-btn primary-qr-btn"
+                    onClick={() => {
+                      alert(`QR Code regenerated for ${selectedMachineObj?.code}! Ready for download and sticker printing.`);
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>Generate QR</span>
+                  </button>
+
+                  <a
+                    href={qrDataUrl}
+                    download={`spin-and-stay-${selectedMachineObj?.code}.png`}
+                    className="qr-action-btn secondary-qr-btn"
+                  >
+                    <Download size={16} />
+                    <span>Download label</span>
+                  </a>
+
+                  <button
+                    className="qr-action-btn outline-qr-btn"
+                    onClick={handlePrintLabel}
+                  >
+                    <Printer size={16} />
+                    <span>Print label</span>
+                  </button>
+
+                  <span className="qr-footer-hint">
+                    Labels print at 3.5" x 4" sticker size with wash instructions.
+                  </span>
+                </div>
+              </div>
+            </section>
           </>
         ) : (
           /* ================= REPORTS & ANALYTICS VIEW ================= */
@@ -1431,10 +1739,10 @@ export default function OwnerDashboard() {
                     {reportStartDate && reportEndDate
                       ? (reportStartDate === reportEndDate ? `Single Date: ${reportStartDate}` : `${reportStartDate} → ${reportEndDate}`)
                       : reportStartDate
-                      ? `From: ${reportStartDate}`
-                      : reportEndDate
-                      ? `Until: ${reportEndDate}`
-                      : 'All Historical Dates Included'}
+                        ? `From: ${reportStartDate}`
+                        : reportEndDate
+                          ? `Until: ${reportEndDate}`
+                          : 'All Historical Dates Included'}
                   </span>
                 </div>
 
@@ -1469,7 +1777,7 @@ export default function OwnerDashboard() {
               <div className="report-card">
                 <span className="report-card-label">Session Outcomes</span>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginTop: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#059669' }}>
+                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#03C988' }}>
                     {reportAnalytics.summary?.completed_count ?? 0}
                   </span>
                   <span style={{ fontSize: '13px', color: '#64748b' }}>Done ·</span>
@@ -1673,8 +1981,8 @@ export default function OwnerDashboard() {
                             <span style={{ fontSize: '12.5px' }}>{c.completedAt}</span>
                           </td>
                           <td>
-                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'active' ? 'chip-blue' : 'chip-orange'}`}>
-                              • {c.status}
+                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
+                              • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
                             </span>
                           </td>
                           <td>
