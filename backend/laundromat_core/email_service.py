@@ -272,7 +272,26 @@ A little less waiting. A little more you.
         # Mark as sent in database to prevent duplicates
         session.email_sent = True
         session.save(update_fields=['email_sent'])
+
+        # Record in Notification audit table (Section 7 specification)
+        try:
+            from .models import Notification
+            Notification.objects.update_or_create(
+                session=session,
+                defaults={'channel': 'email', 'status': 'sent', 'sent_at': timezone.now(), 'error_message': None}
+            )
+        except Exception as notif_err:
+            logger.warning(f"Could not update Notification table: {notif_err}")
+
         return True
     except Exception as e:
         logger.error(f"❌ Failed to send cycle completed email for session {session.id}: {e}", exc_info=True)
+        try:
+            from .models import Notification
+            Notification.objects.update_or_create(
+                session=session,
+                defaults={'channel': 'email', 'status': 'failed', 'error_message': str(e)}
+            )
+        except Exception:
+            pass
         return False

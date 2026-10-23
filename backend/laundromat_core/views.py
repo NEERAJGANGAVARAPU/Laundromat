@@ -8,7 +8,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from django.http import HttpResponse
 
-from .models import Machine, LaundrySession
+from .models import Machine, LaundrySession, AuditLog
 from .serializer import MachineSerializer, LaundrySessionSerializer
 from .qr_utils import generate_qr_image
 from .services import sync_expired_sessions
@@ -100,6 +100,17 @@ class MachineViewSet(viewsets.ModelViewSet):
         machine_code = machine.machine_code
         machine.is_active = False
         machine.save(update_fields=['is_active'])
+
+        try:
+            AuditLog.objects.create(
+                action="MACHINE_DEACTIVATED",
+                record_type="Machine",
+                record_id=machine_code,
+                change_details={"machine_type": machine.machine_type, "note": "Removed from floor view"}
+            )
+        except Exception:
+            pass
+
         return Response(
             {"message": f"Machine {machine_code} removed. Preserved in Reports as removed."},
             status=status.HTTP_200_OK
@@ -265,6 +276,16 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
         session.completed_at = timezone.now()
         session.save(update_fields=['status', 'completed_at'])
 
+        try:
+            AuditLog.objects.create(
+                action="SESSION_CANCELLED",
+                record_type="LaundrySession",
+                record_id=str(session.id),
+                change_details={"machine_code": session.machine_code, "customer_email": session.customer_email}
+            )
+        except Exception:
+            pass
+
         serializer = self.get_serializer(session)
         return Response(
             {
@@ -333,6 +354,21 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
                 session.machine.status = 'in_use'
                 session.machine.save(update_fields=['status'])
 
+        try:
+            AuditLog.objects.create(
+                action="SESSION_MODIFIED",
+                record_type="LaundrySession",
+                record_id=str(session.id),
+                change_details={
+                    "old_status": prev_status,
+                    "new_status": session.status,
+                    "duration_minutes": session.duration_minutes,
+                    "customer_name": session.customer_name
+                }
+            )
+        except Exception:
+            pass
+
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
@@ -350,7 +386,18 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             machine.save(update_fields=['status'])
 
         session_id = str(session.id)
+        customer_email = session.customer_email
         session.delete()
+
+        try:
+            AuditLog.objects.create(
+                action="SESSION_DELETED",
+                record_type="LaundrySession",
+                record_id=session_id,
+                change_details={"machine_code": machine_code, "customer_email": customer_email}
+            )
+        except Exception:
+            pass
 
         return Response(
             {"message": f"Session {session_id} successfully deleted."},
