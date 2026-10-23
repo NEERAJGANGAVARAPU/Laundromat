@@ -148,7 +148,7 @@ export default function OwnerDashboard() {
       }
       if (res.ok) {
         const data = await res.json();
-        setAuditLogs(data);
+        setAuditLogs(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.warn('Audit logs fetch error:', e);
@@ -164,7 +164,7 @@ export default function OwnerDashboard() {
       }
       if (res.ok) {
         const data = await res.json();
-        setNotificationsList(data);
+        setNotificationsList(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.warn('Notifications fetch error:', e);
@@ -1087,6 +1087,7 @@ export default function OwnerDashboard() {
                   <th>MACHINE</th>
                   <th>SERVICE</th>
                   <th>SESSION STATUS</th>
+                  <th>EMAIL NOTIFICATION</th>
                   <th>DETAILS</th>
                 </tr>
               </thead>
@@ -1122,10 +1123,45 @@ export default function OwnerDashboard() {
                       <span className="service-text">{c.service}</span>
                     </td>
                     <td>
-                      <div className="session-status-cell">
-                        <span className="in-progress-badge">In progress</span>
-                        <span className="time-rem-text">{c.timeRemaining}</span>
-                      </div>
+                      {c.status === 'completed' ? (
+                        <span className="status-chip chip-green">
+                          • Completed
+                        </span>
+                      ) : c.status === 'active' ? (
+                        <div className="session-status-cell">
+                          <span className="in-progress-badge">In progress</span>
+                          <span className="time-rem-text">{c.timeRemaining}</span>
+                        </div>
+                      ) : (
+                        <span className="status-chip chip-orange">
+                          • {c.status}
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {c.status === 'completed' ? (
+                        c.emailSent ? (
+                          <span className="notif-badge sent" title={`Email dispatched to ${c.realEmail}`}>
+                            <Mail size={12} /> Sent
+                          </span>
+                        ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                          <span className="notif-badge walkin" title="Walk-in (No email provided)">
+                            Walk-in
+                          </span>
+                        ) : (
+                          <span className="notif-badge pending" title="Email not dispatched for this session">
+                            <Mail size={12} /> Not Sent
+                          </span>
+                        )
+                      ) : c.status === 'active' ? (
+                        <span className="notif-badge active" title="Scheduled upon cycle finish">
+                          <Clock size={12} /> Scheduled
+                        </span>
+                      ) : (
+                        <span className="notif-badge cancelled" title="Session cancelled">
+                          Cancelled
+                        </span>
+                      )}
                     </td>
                     <td>
                       <button
@@ -1140,7 +1176,7 @@ export default function OwnerDashboard() {
               </tbody>
             </table>
           </div>
-          <p className="table-caption-note">Showing all {customers.length} active customer records</p>
+          <p className="table-caption-note">Showing all {customers.length} customer records ({occupiedCount} currently active)</p>
         </section>
 
         {/* ================= QR LABELS SECTION ================= */}
@@ -1530,8 +1566,8 @@ export default function OwnerDashboard() {
                                   Walk-in
                                 </span>
                               ) : (
-                                <span className="notif-badge pending" title="Email not yet dispatched or email off">
-                                  <Mail size={12} /> Pending
+                                <span className="notif-badge pending" title="Email not dispatched for this historical session">
+                                  <Mail size={12} /> Not Sent
                                 </span>
                               )
                             ) : c.status === 'active' ? (
@@ -1581,286 +1617,302 @@ export default function OwnerDashboard() {
           </div>
         ) : (
           /* ================= ACTIVITY & AUDIT LOGS VIEW ================= */
-          <div className="activity-view-container">
-            {/* Top Bar / Header */}
-            <div className="reports-top-bar">
-              <div className="reports-title-col">
-                <h1>System Activity &amp; Audit Trail</h1>
-                <p>
-                  Immutable owner accountability log, machine status changes, and customer email notification history.
-                </p>
-              </div>
+          (() => {
+            const safeAuditLogs = Array.isArray(auditLogs) ? auditLogs : [];
+            const safeNotifs = Array.isArray(notificationsList) ? notificationsList : [];
 
-              <div className="reports-controls-col">
-                <div className="activity-tab-switch">
-                  <button
-                    className={`activity-tab-btn ${activityTab === 'audit' ? 'active' : ''}`}
-                    onClick={() => setActivityTab('audit')}
-                  >
-                    <History size={16} />
-                    <span>Audit Logs ({auditLogs.length})</span>
-                  </button>
-                  <button
-                    className={`activity-tab-btn ${activityTab === 'notifications' ? 'active' : ''}`}
-                    onClick={() => setActivityTab('notifications')}
-                  >
-                    <Mail size={16} />
-                    <span>Email Notifications ({notificationsList.length})</span>
-                  </button>
+            return (
+              <div className="activity-view-container">
+                {/* Top Bar / Header */}
+                <div className="reports-top-bar">
+                  <div className="reports-title-col">
+                    <h1>System Activity &amp; Audit Trail</h1>
+                    <p>
+                      Immutable owner accountability log, machine status changes, and customer email notification history.
+                    </p>
+                  </div>
+
+                  <div className="reports-controls-col">
+                    <div className="activity-tab-switch">
+                      <button
+                        className={`activity-tab-btn ${activityTab === 'audit' ? 'active' : ''}`}
+                        onClick={() => setActivityTab('audit')}
+                      >
+                        <History size={16} />
+                        <span>Audit Logs ({safeAuditLogs.length})</span>
+                      </button>
+                      <button
+                        className={`activity-tab-btn ${activityTab === 'notifications' ? 'active' : ''}`}
+                        onClick={() => setActivityTab('notifications')}
+                      >
+                        <Mail size={16} />
+                        <span>Email Notifications ({safeNotifs.length})</span>
+                      </button>
+                    </div>
+
+                    <button
+                      className="refresh-icon-btn"
+                      onClick={() => {
+                        fetchAuditLogs();
+                        fetchNotifications();
+                      }}
+                      title="Refresh Activity Logs"
+                    >
+                      <RefreshCw size={15} />
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  className="refresh-icon-btn"
-                  onClick={() => {
-                    fetchAuditLogs();
-                    fetchNotifications();
-                  }}
-                  title="Refresh Activity Logs"
-                >
-                  <RefreshCw size={15} />
-                </button>
-              </div>
-            </div>
+                {/* KPI Summary Cards */}
+                <div className="kpi-grid" style={{ marginBottom: '24px' }}>
+                  <div className="kpi-card">
+                    <span className="kpi-label">Total Audit Events</span>
+                    <div className="kpi-value-row">
+                      <span className="kpi-big-num">{safeAuditLogs.length}</span>
+                      <span className="kpi-total-num">logged actions</span>
+                    </div>
+                    <span className="kpi-footer-text">
+                      Complete owner &amp; automated action trace
+                    </span>
+                  </div>
 
-            {/* KPI Summary Cards */}
-            <div className="kpi-grid" style={{ marginBottom: '24px' }}>
-              <div className="kpi-card">
-                <span className="kpi-label">Total Audit Events</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">{auditLogs.length}</span>
-                  <span className="kpi-total-num">logged actions</span>
+                  <div className="kpi-card">
+                    <span className="kpi-label">Completed Sessions Audited</span>
+                    <div className="kpi-value-row">
+                      <span className="kpi-big-num">
+                        {safeAuditLogs.filter((l) => (l.action || '').toUpperCase().includes('COMPLETE')).length}
+                      </span>
+                      <span className="kpi-total-num">completed</span>
+                    </div>
+                    <span className="kpi-footer-text">
+                      Automated background &amp; manual completions
+                    </span>
+                  </div>
+
+                  <div className="kpi-card">
+                    <span className="kpi-label">Machine Reconfigurations</span>
+                    <div className="kpi-value-row">
+                      <span className="kpi-big-num">
+                        {safeAuditLogs.filter((l) => (l.record_type || '').toLowerCase() === 'machine').length}
+                      </span>
+                      <span className="kpi-total-num">events</span>
+                    </div>
+                    <span className="kpi-footer-text">
+                      Adds, status toggles &amp; maintenance
+                    </span>
+                  </div>
+
+                  <div className="kpi-card">
+                    <span className="kpi-label">Email Notifications</span>
+                    <div className="kpi-value-row">
+                      <span className="kpi-big-num">
+                        {safeNotifs.filter((n) => n.status === 'sent').length}
+                      </span>
+                      <span className="kpi-total-num">/ {safeNotifs.length} delivered</span>
+                    </div>
+                    <span className="kpi-footer-text">
+                      Customer cycle completion emails
+                    </span>
+                  </div>
                 </div>
-                <span className="kpi-footer-text">
-                  Complete owner &amp; automated action trace
-                </span>
-              </div>
 
-              <div className="kpi-card">
-                <span className="kpi-label">Completed Sessions Audited</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">
-                    {auditLogs.filter((l) => (l.action || '').toUpperCase().includes('COMPLETE')).length}
-                  </span>
-                  <span className="kpi-total-num">completed</span>
+                {/* Search Filter Bar */}
+                <div className="filter-bar-row" style={{ marginBottom: '16px', justifyContent: 'flex-start' }}>
+                  <div className="report-search-box" style={{ maxWidth: '420px' }}>
+                    <Search size={15} style={{ color: '#64748b' }} />
+                    <input
+                      type="text"
+                      className="report-search-input"
+                      placeholder={activityTab === 'audit' ? 'Filter audit logs by action, record, details...' : 'Search notifications by email, machine...'}
+                      value={activitySearch}
+                      onChange={(e) => setActivitySearch(e.target.value)}
+                    />
+                    {activitySearch && (
+                      <button
+                        onClick={() => setActivitySearch('')}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <span className="kpi-footer-text">
-                  Automated background &amp; manual completions
-                </span>
-              </div>
 
-              <div className="kpi-card">
-                <span className="kpi-label">Machine Reconfigurations</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">
-                    {auditLogs.filter((l) => (l.record_type || '').toLowerCase() === 'machine').length}
-                  </span>
-                  <span className="kpi-total-num">events</span>
-                </div>
-                <span className="kpi-footer-text">
-                  Adds, status toggles &amp; maintenance
-                </span>
-              </div>
+                {/* Main Table: Audit Logs or Notifications */}
+                <section className="dash-section">
+                  <div className="table-wrapper">
+                    {activityTab === 'audit' ? (
+                      <table className="sessions-table">
+                        <thead>
+                          <tr>
+                            <th>TIMESTAMP</th>
+                            <th>ACTION</th>
+                            <th>RECORD</th>
+                            <th>CHANGE DETAILS</th>
+                            <th>PERFORMED BY</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {safeAuditLogs
+                            .filter((l) => {
+                              const q = activitySearch.toLowerCase().trim();
+                              if (!q) return true;
+                              const detailText = (
+                                l.details_summary ||
+                                (typeof l.change_details === 'object' ? JSON.stringify(l.change_details) : String(l.change_details || ''))
+                              ).toLowerCase();
 
-              <div className="kpi-card">
-                <span className="kpi-label">Email Notifications</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">
-                    {notificationsList.filter((n) => n.status === 'sent').length}
-                  </span>
-                  <span className="kpi-total-num">/ {notificationsList.length} delivered</span>
-                </div>
-                <span className="kpi-footer-text">
-                  Customer cycle completion emails
-                </span>
-              </div>
-            </div>
+                              return (
+                                (l.action && l.action.toLowerCase().includes(q)) ||
+                                (l.record_type && l.record_type.toLowerCase().includes(q)) ||
+                                (l.record_id && String(l.record_id).toLowerCase().includes(q)) ||
+                                detailText.includes(q) ||
+                                (l.username && l.username.toLowerCase().includes(q))
+                              );
+                            })
+                            .map((l) => {
+                              const actionUpper = (l.action || '').toUpperCase();
+                              const isCreate = actionUpper.includes('CREATE') || actionUpper.includes('ADD');
+                              const isComplete = actionUpper.includes('COMPLETE');
+                              const isUpdate = actionUpper.includes('UPDATE') || actionUpper.includes('EDIT');
+                              const isDelete = actionUpper.includes('DELETE') || actionUpper.includes('DEACTIVATE');
+                              const isMaint = actionUpper.includes('MAINTENANCE');
 
-            {/* Search Filter Bar */}
-            <div className="filter-bar-row" style={{ marginBottom: '16px', justifyContent: 'flex-start' }}>
-              <div className="report-search-box" style={{ maxWidth: '420px' }}>
-                <Search size={15} style={{ color: '#64748b' }} />
-                <input
-                  type="text"
-                  className="report-search-input"
-                  placeholder={activityTab === 'audit' ? 'Filter audit logs by action, record, details...' : 'Search notifications by email, machine...'}
-                  value={activitySearch}
-                  onChange={(e) => setActivitySearch(e.target.value)}
-                />
-                {activitySearch && (
-                  <button
-                    onClick={() => setActivitySearch('')}
-                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8' }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
+                              const displayDetails =
+                                l.details_summary ||
+                                (typeof l.change_details === 'object' ? JSON.stringify(l.change_details) : String(l.change_details || 'No additional details'));
 
-            {/* Main Table: Audit Logs or Notifications */}
-            <section className="dash-section">
-              <div className="table-wrapper">
-                {activityTab === 'audit' ? (
-                  <table className="sessions-table">
-                    <thead>
-                      <tr>
-                        <th>TIMESTAMP</th>
-                        <th>ACTION</th>
-                        <th>RECORD</th>
-                        <th>CHANGE DETAILS</th>
-                        <th>PERFORMED BY</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {auditLogs
-                        .filter((l) => {
-                          const q = activitySearch.toLowerCase().trim();
-                          if (!q) return true;
-                          return (
-                            (l.action && l.action.toLowerCase().includes(q)) ||
-                            (l.record_type && l.record_type.toLowerCase().includes(q)) ||
-                            (l.record_id && String(l.record_id).toLowerCase().includes(q)) ||
-                            (l.change_details && l.change_details.toLowerCase().includes(q)) ||
-                            (l.username && l.username.toLowerCase().includes(q))
-                          );
-                        })
-                        .map((l) => {
-                          const actionUpper = (l.action || '').toUpperCase();
-                          const isCreate = actionUpper.includes('CREATE') || actionUpper.includes('ADD');
-                          const isComplete = actionUpper.includes('COMPLETE');
-                          const isUpdate = actionUpper.includes('UPDATE') || actionUpper.includes('EDIT');
-                          const isDelete = actionUpper.includes('DELETE') || actionUpper.includes('DEACTIVATE');
-                          const isMaint = actionUpper.includes('MAINTENANCE');
-
-                          return (
-                            <tr key={l.id}>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <Clock size={13} style={{ color: '#94a3b8' }} />
-                                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
-                                    {l.timestamp_formatted || l.timestamp}
-                                  </span>
-                                </div>
-                              </td>
-                              <td>
-                                <span className={`audit-tag ${
-                                  isCreate ? 'tag-green' :
-                                  isComplete ? 'tag-blue' :
-                                  isUpdate ? 'tag-amber' :
-                                  isDelete ? 'tag-rose' :
-                                  isMaint ? 'tag-purple' : 'tag-gray'
-                                }`}>
-                                  {l.action}
-                                </span>
-                              </td>
-                              <td>
-                                <span className="machine-tag-cell">
-                                  {l.record_type} #{l.record_id}
-                                </span>
-                              </td>
-                              <td>
-                                <span style={{ fontSize: '13px', color: '#1e293b' }}>
-                                  {l.change_details}
-                                </span>
-                              </td>
-                              <td>
-                                <span className="audit-user-badge">
-                                  {l.username || 'System / Owner'}
-                                </span>
+                              return (
+                                <tr key={l.id}>
+                                  <td>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <Clock size={13} style={{ color: '#94a3b8' }} />
+                                      <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                                        {l.timestamp_formatted || l.timestamp}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <span className={`audit-tag ${
+                                      isCreate ? 'tag-green' :
+                                      isComplete ? 'tag-blue' :
+                                      isUpdate ? 'tag-amber' :
+                                      isDelete ? 'tag-rose' :
+                                      isMaint ? 'tag-purple' : 'tag-gray'
+                                    }`}>
+                                      {l.action}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className="machine-tag-cell">
+                                      {l.record_type} #{l.record_id}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span style={{ fontSize: '13px', color: '#1e293b' }}>
+                                      {displayDetails}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className="audit-user-badge">
+                                      {l.username || 'System / Owner'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          {safeAuditLogs.length === 0 && (
+                            <tr>
+                              <td colSpan="5" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                                No audit logs recorded yet.
                               </td>
                             </tr>
-                          );
-                        })}
-                      {auditLogs.length === 0 && (
-                        <tr>
-                          <td colSpan="5" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
-                            No audit logs recorded yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="sessions-table">
-                    <thead>
-                      <tr>
-                        <th>SENT AT</th>
-                        <th>SESSION</th>
-                        <th>RECIPIENT EMAIL</th>
-                        <th>MACHINE</th>
-                        <th>CHANNEL</th>
-                        <th>DELIVERY STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {notificationsList
-                        .filter((n) => {
-                          const q = activitySearch.toLowerCase().trim();
-                          if (!q) return true;
-                          return (
-                            (n.customer_email && n.customer_email.toLowerCase().includes(q)) ||
-                            (n.machine_code && n.machine_code.toLowerCase().includes(q)) ||
-                            (n.status && n.status.toLowerCase().includes(q)) ||
-                            String(n.session_id).includes(q)
-                          );
-                        })
-                        .map((n) => (
-                          <tr key={n.id}>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Clock size={13} style={{ color: '#94a3b8' }} />
-                                <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
-                                  {n.sent_at_formatted || n.sent_at}
-                                </span>
-                              </div>
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: 700, color: '#0b1a44' }}>
-                                Session #{n.session_id}
-                              </span>
-                            </td>
-                            <td>
-                              <span style={{ fontSize: '13px', color: '#2563eb', fontWeight: 600 }}>
-                                {n.customer_email || 'customer@gmail.com'}
-                              </span>
-                            </td>
-                            <td>
-                              <span className="machine-tag-cell">{n.machine_code || '-'}</span>
-                            </td>
-                            <td>
-                              <span className="channel-badge">
-                                <Mail size={12} /> {n.channel || 'email'}
-                              </span>
-                            </td>
-                            <td>
-                              {n.status === 'sent' ? (
-                                <span className="notif-badge sent">
-                                  <CheckCircle size={12} /> Sent &amp; Recorded
-                                </span>
-                              ) : (
-                                <span className="notif-badge pending">
-                                  {n.status || 'Pending'}
-                                </span>
-                              )}
-                            </td>
+                          )}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <table className="sessions-table">
+                        <thead>
+                          <tr>
+                            <th>SENT AT</th>
+                            <th>SESSION</th>
+                            <th>RECIPIENT EMAIL</th>
+                            <th>MACHINE</th>
+                            <th>CHANNEL</th>
+                            <th>DELIVERY STATUS</th>
                           </tr>
-                        ))}
-                      {notificationsList.length === 0 && (
-                        <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
-                            No email notifications logged yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                )}
+                        </thead>
+                        <tbody>
+                          {safeNotifs
+                            .filter((n) => {
+                              const q = activitySearch.toLowerCase().trim();
+                              if (!q) return true;
+                              return (
+                                (n.customer_email && n.customer_email.toLowerCase().includes(q)) ||
+                                (n.machine_code && n.machine_code.toLowerCase().includes(q)) ||
+                                (n.status && n.status.toLowerCase().includes(q)) ||
+                                String(n.session_id).includes(q)
+                              );
+                            })
+                            .map((n) => (
+                              <tr key={n.id}>
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Clock size={13} style={{ color: '#94a3b8' }} />
+                                    <span style={{ fontSize: '12.5px', fontWeight: 600, color: '#334155' }}>
+                                      {n.sent_at_formatted || n.sent_at}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td>
+                                  <span style={{ fontWeight: 700, color: '#0b1a44' }}>
+                                    Session #{n.session_id}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span style={{ fontSize: '13px', color: '#2563eb', fontWeight: 600 }}>
+                                    {n.customer_email || 'customer@gmail.com'}
+                                  </span>
+                                </td>
+                                <td>
+                                  <span className="machine-tag-cell">{n.machine_code || '-'}</span>
+                                </td>
+                                <td>
+                                  <span className="channel-badge">
+                                    <Mail size={12} /> {n.channel || 'email'}
+                                  </span>
+                                </td>
+                                <td>
+                                  {n.status === 'sent' ? (
+                                    <span className="notif-badge sent">
+                                      <CheckCircle size={12} /> Sent &amp; Recorded
+                                    </span>
+                                  ) : (
+                                    <span className="notif-badge pending">
+                                      {n.status || 'Pending'}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          {safeNotifs.length === 0 && (
+                            <tr>
+                              <td colSpan="6" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                                No email notifications logged yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                  <p className="table-caption-note">
+                    Showing {activityTab === 'audit' ? safeAuditLogs.length : safeNotifs.length} history records · Stored in SQLite <code>laundromat_core_{activityTab === 'audit' ? 'auditlog' : 'notification'}</code>
+                  </p>
+                </section>
               </div>
-              <p className="table-caption-note">
-                Showing {activityTab === 'audit' ? auditLogs.length : notificationsList.length} history records · Stored in SQLite <code>laundromat_core_{activityTab === 'audit' ? 'auditlog' : 'notification'}</code>
-              </p>
-            </section>
-          </div>
+            );
+          })()
         )}
 
         {/* Global Dashboard Disclaimer */}

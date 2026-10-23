@@ -150,6 +150,7 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
 class AuditLogSerializer(serializers.ModelSerializer):
     username = serializers.SerializerMethodField()
     timestamp_formatted = serializers.SerializerMethodField()
+    details_summary = serializers.SerializerMethodField()
 
     def get_username(self, obj):
         return obj.user.username if obj.user else 'System / Owner'
@@ -159,9 +160,20 @@ class AuditLogSerializer(serializers.ModelSerializer):
             return '-'
         return timezone.localtime(obj.timestamp).strftime('%b %d, %Y %I:%M %p') if timezone.is_aware(obj.timestamp) else obj.timestamp.strftime('%b %d, %Y %I:%M %p')
 
+    def get_details_summary(self, obj):
+        if not obj.change_details:
+            return 'No additional details'
+        if isinstance(obj.change_details, dict):
+            items = []
+            for k, v in obj.change_details.items():
+                clean_k = k.replace('_', ' ').title()
+                items.append(f"{clean_k}: {v}")
+            return ", ".join(items)
+        return str(obj.change_details)
+
     class Meta:
         model = AuditLog
-        fields = ['id', 'action', 'record_type', 'record_id', 'change_details', 'username', 'timestamp', 'timestamp_formatted']
+        fields = ['id', 'action', 'record_type', 'record_id', 'change_details', 'details_summary', 'username', 'timestamp', 'timestamp_formatted']
 
 
 class NotificationSerializer(serializers.ModelSerializer):
