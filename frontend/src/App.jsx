@@ -25,15 +25,13 @@ function SmartRootRoute() {
   return <Navigate to="/owner/login" replace />;
 }
 
+// Owner Login Route wrapper
+function OwnerLoginRoute() {
+  const isAuth = Boolean(localStorage.getItem('spin_owner_auth'));
+  return isAuth ? <Navigate to="/owner/dashboard" replace /> : <OwnerLogin />;
+}
+
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return Boolean(localStorage.getItem('spin_owner_auth'));
-  });
-
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
-
   return (
     <BrowserRouter>
       <Routes>
@@ -44,16 +42,7 @@ export default function App() {
         <Route path="/wash" element={<CustomerView />} />
 
         {/* Owner Login */}
-        <Route
-          path="/owner/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/owner/dashboard" replace />
-            ) : (
-              <OwnerLogin onLogin={handleLogin} />
-            )
-          }
-        />
+        <Route path="/owner/login" element={<OwnerLoginRoute />} />
 
         {/* Owner Dashboard */}
         <Route

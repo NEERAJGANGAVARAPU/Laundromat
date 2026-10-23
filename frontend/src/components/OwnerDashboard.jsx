@@ -7,7 +7,6 @@ import {
   QrCode,
   Layers,
   Users,
-  Activity,
   Sliders,
   ShieldAlert,
   LogOut,
@@ -37,7 +36,9 @@ import {
   RefreshCw,
   Lock,
   KeyRound,
-  ShieldCheck
+  ShieldCheck,
+  Mail,
+  ArrowRight
 } from 'lucide-react';
 import '../OwnerPortal.css';
 
@@ -107,7 +108,9 @@ export default function OwnerDashboard() {
   const [detectedLanIp, setDetectedLanIp] = useState('');
 
   // ================= REPORTS & ANALYTICS STATE =================
-  const [selectedReportDate, setSelectedReportDate] = useState('all');
+  const [reportDatePreset, setReportDatePreset] = useState('all'); // 'all', 'today', 'week', 'month', 'custom'
+  const [reportStartDate, setReportStartDate] = useState('');
+  const [reportEndDate, setReportEndDate] = useState('');
   const [reportAnalytics, setReportAnalytics] = useState({
     selected_date: 'all',
     available_dates: [],
@@ -162,12 +165,25 @@ export default function OwnerDashboard() {
     fetchIp();
   }, [apiHost]);
 
-  // Fetch Day-wise Report Analytics
-  const fetchReportAnalytics = async (date = selectedReportDate) => {
+  // Helper to format Date into YYYY-MM-DD
+  const toISODate = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Fetch Report Analytics for date range
+  const fetchReportAnalytics = async (sDate = reportStartDate, eDate = reportEndDate) => {
     try {
-      let res = await fetch(`/api/reports/analytics/?date=${date}`).catch(() => null);
+      const params = new URLSearchParams();
+      if (sDate) params.append('start_date', sDate);
+      if (eDate) params.append('end_date', eDate);
+      if (!sDate && !eDate) params.append('date', 'all');
+
+      let res = await fetch(`/api/reports/analytics/?${params.toString()}`).catch(() => null);
       if (!res || !res.ok) {
-        res = await fetch(`http://${apiHost}:8000/api/reports/analytics/?date=${date}`);
+        res = await fetch(`http://${apiHost}:8000/api/reports/analytics/?${params.toString()}`);
       }
       if (res.ok) {
         const data = await res.json();
@@ -178,25 +194,103 @@ export default function OwnerDashboard() {
     }
   };
 
+  // Handle Date Range Presets
+  const handleDatePreset = (preset) => {
+    setReportDatePreset(preset);
+    const today = new Date();
+    if (preset === 'all') {
+      setReportStartDate('');
+      setReportEndDate('');
+      fetchReportAnalytics('', '');
+    } else if (preset === 'today') {
+      const todayStr = toISODate(today);
+      setReportStartDate(todayStr);
+      setReportEndDate(todayStr);
+      fetchReportAnalytics(todayStr, todayStr);
+    } else if (preset === 'week') {
+      const past7 = new Date();
+      past7.setDate(today.getDate() - 6);
+      const startStr = toISODate(past7);
+      const endStr = toISODate(today);
+      setReportStartDate(startStr);
+      setReportEndDate(endStr);
+      fetchReportAnalytics(startStr, endStr);
+    } else if (preset === 'month') {
+      const past30 = new Date();
+      past30.setDate(today.getDate() - 29);
+      const startStr = toISODate(past30);
+      const endStr = toISODate(today);
+      setReportStartDate(startStr);
+      setReportEndDate(endStr);
+      fetchReportAnalytics(startStr, endStr);
+    } else if (preset === 'custom') {
+      const todayStr = toISODate(today);
+      const s = reportStartDate || todayStr;
+      const e = reportEndDate || todayStr;
+      setReportStartDate(s);
+      setReportEndDate(e);
+      fetchReportAnalytics(s, e);
+    }
+  };
+
+  const handleStartDateChange = (val) => {
+    setReportStartDate(val);
+    setReportDatePreset('custom');
+    fetchReportAnalytics(val, reportEndDate);
+  };
+
+  const handleEndDateChange = (val) => {
+    setReportEndDate(val);
+    setReportDatePreset('custom');
+    fetchReportAnalytics(reportStartDate, val);
+  };
+
   useEffect(() => {
-    fetchReportAnalytics(selectedReportDate);
-  }, [selectedReportDate, activeNav]);
+    if (activeNav === 'reports') {
+      fetchReportAnalytics();
+    }
+  }, [activeNav]);
 
   // Export CSV Handler
   const handleExportCSV = () => {
-    const url = `http://${apiHost}:8000/api/reports/csv/?date=${selectedReportDate}&status=${reportStatusFilter}&search=${encodeURIComponent(reportSearch)}`;
+    const params = new URLSearchParams();
+    if (reportStartDate) params.append('start_date', reportStartDate);
+    if (reportEndDate) params.append('end_date', reportEndDate);
+    if (!reportStartDate && !reportEndDate) params.append('date', 'all');
+    if (reportStatusFilter !== 'all') params.append('status', reportStatusFilter);
+    if (reportSearch) params.append('search', reportSearch);
+
+    const url = `http://${apiHost}:8000/api/reports/csv/?${params.toString()}`;
     window.open(url, '_blank');
   };
 
   // Export PDF Handler
   const handleExportPDF = () => {
-    const url = `http://${apiHost}:8000/api/reports/pdf/?date=${selectedReportDate}&status=${reportStatusFilter}&search=${encodeURIComponent(reportSearch)}`;
+    const params = new URLSearchParams();
+    if (reportStartDate) params.append('start_date', reportStartDate);
+    if (reportEndDate) params.append('end_date', reportEndDate);
+    if (!reportStartDate && !reportEndDate) params.append('date', 'all');
+    if (reportStatusFilter !== 'all') params.append('status', reportStatusFilter);
+    if (reportSearch) params.append('search', reportSearch);
+
+    const url = `http://${apiHost}:8000/api/reports/pdf/?${params.toString()}`;
     window.open(url, '_blank');
   };
 
   // Create Manual Walk-in Session
   const handleCreateManualSession = async (e) => {
     e.preventDefault();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanPhone = manualPhone.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      alert(`Phone number must be exactly 10 digits (currently ${cleanPhone.length}/10 digits).`);
+      return;
+    }
+    if (manualEmail.trim() && !emailRegex.test(manualEmail.trim())) {
+      alert('Please provide a valid email address (must include "@" and a domain, e.g. name@example.com).');
+      return;
+    }
+
     try {
       const res = await fetch(`http://${apiHost}:8000/api/sessions/`, {
         method: 'POST',
@@ -205,7 +299,7 @@ export default function OwnerDashboard() {
           machine_code: manualMachine,
           customer_name: manualName.trim() || 'Walk-in Customer',
           customer_email: manualEmail.trim() || `walkin-${Date.now()}@laundromat.local`,
-          customer_phone: manualPhone.trim(),
+          customer_phone: cleanPhone,
           duration_minutes: parseInt(manualDuration, 10) || 30,
           status: manualStatus
         })
@@ -219,7 +313,7 @@ export default function OwnerDashboard() {
       setManualPhone('');
       fetchBackendSessions();
       fetchBackendMachines();
-      fetchReportAnalytics(selectedReportDate);
+      fetchReportAnalytics();
       alert('Walk-in session recorded successfully!');
     } catch (err) {
       alert(`Error creating session: ${err.message}`);
@@ -241,6 +335,17 @@ export default function OwnerDashboard() {
   const handleUpdateSession = async (e) => {
     e.preventDefault();
     if (!editingSession) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const cleanPhone = editPhone.replace(/\D/g, '');
+    if (cleanPhone && cleanPhone.length !== 10) {
+      alert(`Phone number must be exactly 10 digits (currently ${cleanPhone.length}/10 digits).`);
+      return;
+    }
+    if (editEmail.trim() && !emailRegex.test(editEmail.trim())) {
+      alert('Please provide a valid email address (must include "@" and a domain, e.g. name@example.com).');
+      return;
+    }
+
     try {
       const res = await fetch(`http://${apiHost}:8000/api/sessions/${editingSession.id}/`, {
         method: 'PATCH',
@@ -248,7 +353,7 @@ export default function OwnerDashboard() {
         body: JSON.stringify({
           customer_name: editName.trim(),
           customer_email: editEmail.trim(),
-          customer_phone: editPhone.trim(),
+          customer_phone: cleanPhone || editPhone.trim(),
           duration_minutes: parseInt(editDuration, 10) || 30,
           status: editStatus
         })
@@ -262,7 +367,7 @@ export default function OwnerDashboard() {
       setEditingSession(null);
       fetchBackendSessions();
       fetchBackendMachines();
-      fetchReportAnalytics(selectedReportDate);
+      fetchReportAnalytics();
       alert('Session updated successfully!');
     } catch (err) {
       alert(`Update error: ${err.message}`);
@@ -280,7 +385,7 @@ export default function OwnerDashboard() {
 
       fetchBackendSessions();
       fetchBackendMachines();
-      fetchReportAnalytics(selectedReportDate);
+      fetchReportAnalytics();
     } catch (err) {
       alert(`Delete error: ${err.message}`);
     }
@@ -356,6 +461,7 @@ export default function OwnerDashboard() {
             rawDate: s.started_at ? s.started_at.split('T')[0] : '',
             timeRemaining: s.status === 'active' ? 'Active in progress' : s.status,
             status: s.status,
+            emailSent: !!s.email_sent,
             revealed: false
           };
         });
@@ -627,7 +733,14 @@ export default function OwnerDashboard() {
 
   // Filtered customer sessions for Reports view
   const filteredReportSessions = customers.filter((c) => {
-    const matchesDate = selectedReportDate === 'all' || !selectedReportDate || c.rawDate === selectedReportDate;
+    let matchesDate = true;
+    if (reportStartDate && reportEndDate) {
+      matchesDate = c.rawDate >= reportStartDate && c.rawDate <= reportEndDate;
+    } else if (reportStartDate) {
+      matchesDate = c.rawDate >= reportStartDate;
+    } else if (reportEndDate) {
+      matchesDate = c.rawDate <= reportEndDate;
+    }
     const matchesStatus = reportStatusFilter === 'all' || c.status === reportStatusFilter;
     const q = reportSearch.toLowerCase().trim();
     const matchesSearch = !q ||
@@ -809,23 +922,7 @@ export default function OwnerDashboard() {
             <span className="nav-badge">{customers.length}</span>
           </button>
 
-          <button
-            className={`nav-item-btn ${activeNav === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveNav('activity')}
-          >
-            <Activity size={18} />
-            <span>Activity</span>
-          </button>
-
           <div className="nav-group-label">WORKSPACE</div>
-
-          <button
-            className={`nav-item-btn ${activeNav === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveNav('settings')}
-          >
-            <Sliders size={18} />
-            <span>Access settings</span>
-          </button>
 
           <button
             className={`nav-item-btn ${activeNav === 'security' ? 'active' : ''}`}
@@ -869,6 +966,8 @@ export default function OwnerDashboard() {
                 ? 'Reports & Analytics'
                 : activeNav === 'settings' || activeNav === 'security'
                 ? 'Access Settings'
+                : activeNav === 'activity'
+                ? 'Activity & Audit Trail'
                 : 'Overview'}
             </span>
           </div>
@@ -1379,6 +1478,7 @@ export default function OwnerDashboard() {
                   <th>MACHINE</th>
                   <th>SERVICE</th>
                   <th>SESSION STATUS</th>
+                  <th>EMAIL NOTIFICATION</th>
                   <th>DETAILS</th>
                 </tr>
               </thead>
@@ -1419,6 +1519,31 @@ export default function OwnerDashboard() {
                       </span>
                     </td>
                     <td>
+                      {c.status === 'completed' ? (
+                        c.emailSent ? (
+                          <span className="notif-badge sent" title={`Email dispatched to ${c.realEmail}`}>
+                            <Mail size={12} /> Sent
+                          </span>
+                        ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                          <span className="notif-badge walkin" title="Walk-in (No email provided)">
+                            Walk-in
+                          </span>
+                        ) : (
+                          <span className="notif-badge pending" title="Email not dispatched for this session">
+                            <Mail size={12} /> Not Sent
+                          </span>
+                        )
+                      ) : c.status === 'active' ? (
+                        <span className="notif-badge active" title="Scheduled upon cycle finish">
+                          <Clock size={12} /> Scheduled
+                        </span>
+                      ) : (
+                        <span className="notif-badge cancelled" title="Session cancelled">
+                          Cancelled
+                        </span>
+                      )}
+                    </td>
+                    <td>
                       <button
                         className="view-details-link"
                         onClick={() => alert(`Customer Session for ${c.name}\nMachine: ${c.machine}\nEmail: ${c.realEmail}\nPhone: ${c.realPhone}`)}
@@ -1431,7 +1556,7 @@ export default function OwnerDashboard() {
               </tbody>
             </table>
           </div>
-          <p className="table-caption-note">Showing all {customers.length} active customer records</p>
+          <p className="table-caption-note">Showing all {customers.length} customer records ({occupiedCount} currently active)</p>
         </section>
 
         {/* ================= QR LABELS SECTION ================= */}
@@ -1547,33 +1672,17 @@ export default function OwnerDashboard() {
               <div className="reports-title-col">
                 <h1>Business Reports &amp; Analytics</h1>
                 <p>
-                  Day-by-day machine usage, customer footfall tracking, full session CRUD &amp; multi-format export.
+                  Date range machine usage, customer footfall tracking, full session CRUD &amp; multi-format export.
                 </p>
               </div>
 
               <div className="reports-controls-col">
-                <div className="date-select-wrapper">
-                  <Calendar size={16} />
-                  <select
-                    value={selectedReportDate}
-                    onChange={(e) => setSelectedReportDate(e.target.value)}
-                    className="date-dropdown"
-                  >
-                    <option value="all">All Dates Combined</option>
-                    {reportAnalytics.available_dates && reportAnalytics.available_dates.map((d) => (
-                      <option key={d} value={d}>
-                        {d} {d === new Date().toISOString().split('T')[0] ? '(Today)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <button className="btn-export btn-csv" onClick={handleExportCSV} title="Download CSV Report">
+                <button className="btn-export btn-csv" onClick={handleExportCSV} title="Download CSV Report for selected date range">
                   <FileSpreadsheet size={16} />
                   <span>Export CSV</span>
                 </button>
 
-                <button className="btn-export btn-pdf" onClick={handleExportPDF} title="Download PDF Report">
+                <button className="btn-export btn-pdf" onClick={handleExportPDF} title="Download PDF Report for selected date range">
                   <FileText size={16} />
                   <span>Export PDF</span>
                 </button>
@@ -1585,12 +1694,107 @@ export default function OwnerDashboard() {
               </div>
             </div>
 
-            {/* Day KPI Metrics Grid */}
+            {/* Date Range Presets & Custom Pickers */}
+            <div className="reports-filter-section">
+              <div className="date-range-presets-row">
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginRight: '4px' }}>
+                  Date Filter:
+                </span>
+                <button
+                  type="button"
+                  className={`preset-pill-btn ${reportDatePreset === 'all' ? 'active' : ''}`}
+                  onClick={() => handleDatePreset('all')}
+                >
+                  All Time
+                </button>
+                <button
+                  type="button"
+                  className={`preset-pill-btn ${reportDatePreset === 'today' ? 'active' : ''}`}
+                  onClick={() => handleDatePreset('today')}
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  className={`preset-pill-btn ${reportDatePreset === 'week' ? 'active' : ''}`}
+                  onClick={() => handleDatePreset('week')}
+                >
+                  This Week (7 Days)
+                </button>
+                <button
+                  type="button"
+                  className={`preset-pill-btn ${reportDatePreset === 'month' ? 'active' : ''}`}
+                  onClick={() => handleDatePreset('month')}
+                >
+                  This Month (30 Days)
+                </button>
+                <button
+                  type="button"
+                  className={`preset-pill-btn ${reportDatePreset === 'custom' ? 'active' : ''}`}
+                  onClick={() => handleDatePreset('custom')}
+                >
+                  Custom Range
+                </button>
+              </div>
+
+              <div className="date-inputs-row">
+                <div className="date-input-field-wrap">
+                  <Calendar size={14} style={{ color: '#2558ea' }} />
+                  <label htmlFor="start-date-input">From:</label>
+                  <input
+                    id="start-date-input"
+                    type="date"
+                    className="date-range-picker-input"
+                    value={reportStartDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                  />
+                </div>
+
+                <div className="date-input-field-wrap">
+                  <Calendar size={14} style={{ color: '#2558ea' }} />
+                  <label htmlFor="end-date-input">To:</label>
+                  <input
+                    id="end-date-input"
+                    type="date"
+                    className="date-range-picker-input"
+                    value={reportEndDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                  />
+                </div>
+
+                <div className="date-range-badge-indicator">
+                  <Calendar size={14} />
+                  <span>
+                    {reportStartDate && reportEndDate
+                      ? (reportStartDate === reportEndDate ? `Single Date: ${reportStartDate}` : `${reportStartDate} → ${reportEndDate}`)
+                      : reportStartDate
+                      ? `From: ${reportStartDate}`
+                      : reportEndDate
+                      ? `Until: ${reportEndDate}`
+                      : 'All Historical Dates Included'}
+                  </span>
+                </div>
+
+                {(reportStartDate || reportEndDate) && (
+                  <button
+                    type="button"
+                    onClick={() => handleDatePreset('all')}
+                    className="preset-pill-btn"
+                    style={{ borderStyle: 'dashed' }}
+                    title="Clear date filter"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Period KPI Metrics Grid */}
             <div className="reports-kpi-grid">
               <div className="report-card">
-                <span className="report-card-label">Day Total Cycles</span>
+                <span className="report-card-label">Total Cycles</span>
                 <span className="report-card-num">{reportAnalytics.summary?.total_sessions ?? 0}</span>
-                <span className="report-card-sub">Wash &amp; dry runs recorded</span>
+                <span className="report-card-sub">In selected date period</span>
               </div>
 
               <div className="report-card">
@@ -1635,7 +1839,7 @@ export default function OwnerDashboard() {
                 <div className="section-title-group">
                   <h2 className="section-title">Machine Utilization &amp; People Count</h2>
                   <span className="section-count-badge">
-                    {selectedReportDate === 'all' ? 'All Days' : `Date: ${selectedReportDate}`}
+                    {reportAnalytics.selected_date === 'all' ? 'All Time' : `Range: ${reportAnalytics.selected_date}`}
                   </span>
                 </div>
                 <span className="static-note">
@@ -1741,7 +1945,7 @@ export default function OwnerDashboard() {
                     className="refresh-icon-btn"
                     onClick={() => {
                       fetchBackendSessions();
-                      fetchReportAnalytics(selectedReportDate);
+                      fetchReportAnalytics();
                     }}
                     title="Refresh Data"
                   >
@@ -1761,6 +1965,7 @@ export default function OwnerDashboard() {
                       <th>STARTED</th>
                       <th>COMPLETED</th>
                       <th>STATUS</th>
+                      <th>EMAIL NOTIFICATION</th>
                       <th>ACTIONS</th>
                     </tr>
                   </thead>
@@ -1810,6 +2015,31 @@ export default function OwnerDashboard() {
                             </span>
                           </td>
                           <td>
+                            {c.status === 'completed' ? (
+                              c.emailSent ? (
+                                <span className="notif-badge sent" title={`Email sent to ${c.realEmail}`}>
+                                  <Mail size={12} /> Sent
+                                </span>
+                              ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                                <span className="notif-badge walkin" title="Walk-in (No email provided)">
+                                  Walk-in
+                                </span>
+                              ) : (
+                                <span className="notif-badge pending" title="Email not dispatched for this historical session">
+                                  <Mail size={12} /> Not Sent
+                                </span>
+                              )
+                            ) : c.status === 'active' ? (
+                              <span className="notif-badge active" title="Scheduled upon cycle finish">
+                                <Clock size={12} /> Scheduled
+                              </span>
+                            ) : (
+                              <span className="notif-badge cancelled" title="Session cancelled">
+                                Cancelled
+                              </span>
+                            )}
+                          </td>
+                          <td>
                             <div style={{ display: 'flex', gap: '4px' }}>
                               <button
                                 className="table-action-btn action-edit"
@@ -1831,7 +2061,7 @@ export default function OwnerDashboard() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                        <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
                           No sessions match the current date and filters.
                         </td>
                       </tr>
@@ -1974,18 +2204,24 @@ export default function OwnerDashboard() {
               </div>
 
               <div className="modal-field">
-                <label>Phone Number</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label>Phone Number (10 digits only)</label>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: manualPhone.length === 10 ? '#059669' : '#64748b' }}>
+                    {manualPhone.length}/10 digits
+                  </span>
+                </div>
                 <input
                   type="tel"
-                  placeholder="e.g. +1 555-0199"
+                  placeholder="e.g. 9876543210"
                   value={manualPhone}
-                  onChange={(e) => setManualPhone(e.target.value)}
+                  onChange={(e) => setManualPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
                   required
                 />
               </div>
 
               <div className="modal-field">
-                <label>Email (optional)</label>
+                <label>Email (must contain @ and domain)</label>
                 <input
                   type="email"
                   placeholder="customer@example.com"
@@ -2056,11 +2292,18 @@ export default function OwnerDashboard() {
               </div>
 
               <div className="modal-field">
-                <label>Customer Phone</label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label>Customer Phone (10 digits only)</label>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: editPhone.length === 10 ? '#059669' : '#64748b' }}>
+                    {editPhone.length}/10 digits
+                  </span>
+                </div>
                 <input
                   type="tel"
+                  placeholder="e.g. 9876543210"
                   value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
+                  onChange={(e) => setEditPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  maxLength={10}
                 />
               </div>
 
@@ -2070,6 +2313,7 @@ export default function OwnerDashboard() {
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="customer@example.com"
                   required
                 />
               </div>

@@ -6,7 +6,9 @@ from .views import (
     network_ip_view,
     reports_analytics_view,
     reports_csv_view,
-    reports_pdf_view
+    reports_pdf_view,
+    audit_logs_view,
+    notifications_view
 )
 
 # 1. Create a REST Framework router
@@ -30,5 +32,7 @@ urlpatterns = [
     path('reports/analytics/', reports_analytics_view, name='reports_analytics'),
     path('reports/csv/', reports_csv_view, name='reports_csv'),
     path('reports/pdf/', reports_pdf_view, name='reports_pdf'),
+    path('audit-logs/', audit_logs_view, name='audit_logs'),
+    path('notifications/', notifications_view, name='notifications'),
     path('', include(router.urls)),
 ]
