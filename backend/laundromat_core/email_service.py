@@ -49,7 +49,7 @@ def send_cycle_completed_email(session):
 
     if is_dryer:
         machine_label = f"Dryer {machine_code}"
-        subject = f"✨ Your laundry on Dryer {machine_code} is dry & ready! — Spin & Stay"
+        subject = f"✨ Your laundry on Dryer {machine_code} is dry & ready! — Spinzone"
         headline = "Dry & Fresh. Ready to Go."
         subheadline = f"{customer_name}, your drying cycle is complete!"
         action_text = f"Your clothes in <strong>Dryer {machine_code}</strong> are warm, dry, and ready for pickup. Please collect your laundry promptly so the machine is available for other customers."
@@ -58,7 +58,7 @@ def send_cycle_completed_email(session):
         next_step_tip = "🧺 Grab your laundry bag and collect your clothes from machine " + machine_code + "."
     else:
         machine_label = f"Washer {machine_code}"
-        subject = f"🧺 Your wash on Washer {machine_code} is finished! — Spin & Stay"
+        subject = f"🧺 Your wash on Washer {machine_code} is finished! — Spinzone"
         headline = "Clean & Fresh. Ready to Unload."
         subheadline = f"{customer_name}, your wash cycle is complete!"
         action_text = f"Your wash in <strong>Washer {machine_code}</strong> has finished. Please unload your clothes promptly to transfer them to a dryer or head home."
@@ -81,7 +81,7 @@ SESSION SUMMARY:
 - Status: Completed
 - Next Step: {next_step_tip}
 
-Thank you for washing with Spin & Stay Laundromat!
+Thank you for washing with Spinzone Laundromat!
 A little less waiting. A little more you.
 """.strip()
 
@@ -214,7 +214,7 @@ A little less waiting. A little more you.
 <body>
   <div class="email-container">
     <div class="header">
-      <div class="brand-pill">Spin &amp; Stay Laundromat</div>
+      <div class="brand-pill">Spinzone Laundromat</div>
       <h1 class="brand-title">Cycle Complete</h1>
     </div>
 
@@ -248,8 +248,9 @@ A little less waiting. A little more you.
     </div>
 
     <div class="footer">
-      <p style="margin: 0 0 6px 0;"><strong>Spin &amp; Stay Laundromat</strong></p>
-      <p style="margin: 0;">A little less waiting. A little more you.</p>
+      <p style="margin: 0 0 6px 0;"><strong>Spinzone Laundromat</strong></p>
+      <p style="margin: 0 0 8px 0;">A little less waiting. A little more you.</p>
+      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Powered by <strong>SanielSoft</strong></p>
     </div>
   </div>
 </body>
@@ -258,7 +259,7 @@ A little less waiting. A little more you.
 
     # 6. Send email via Django's mail system
     try:
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Spin & Stay <noreply@spinandstay.local>')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Spinzone <noreply@spinzone.local>')
         send_mail(
             subject=subject,
             message=text_message,

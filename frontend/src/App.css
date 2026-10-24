@@ -1,4 +1,4 @@
-/* Spin & Stay Complete Styling */
+/* Spinzone Complete Styling */
 
 .page-wrapper {
   width: 100%;
@@ -1073,4 +1073,35 @@
 
 .footer-help-link:hover {
   text-decoration: underline;
+}
+
+/* Customer Mobile Card - Powered by SanielSoft */
+.customer-powered-by-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(203, 213, 225, 0.7);
+  text-align: center;
+  width: 100%;
+}
+
+.customer-powered-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.sanielsoft-logo-customer {
+  height: 20px;
+  max-height: 20px;
+  max-width: 140px;
+  width: auto;
+  object-fit: contain;
+  display: inline-block;
+  vertical-align: middle;
 }

@@ -52,7 +52,7 @@ export default function OwnerSidebar({
             </svg>
           </div>
           <div className="brand-text-col">
-            <span className="sidebar-brand-title">Spin &amp; Stay</span>
+            <span className="sidebar-brand-title">Spinzone</span>
             <span className="sidebar-brand-sub">OWNER PORTAL</span>
           </div>
         </div>
@@ -146,10 +146,10 @@ export default function OwnerSidebar({
         </div>
 
         <div className="owner-profile-row">
-          <div className="owner-avatar">VK</div>
+          <div className="owner-avatar">SZ</div>
           <div className="owner-profile-info">
-            <span className="owner-name">Vikranth</span>
-            <span className="owner-role">Store owner</span>
+            <span className="owner-name">Store Admin</span>
+            <span className="owner-role">Store Owner</span>
           </div>
           <button className="signout-btn" onClick={onSignOut} title="Sign out">
             <LogOut size={16} />

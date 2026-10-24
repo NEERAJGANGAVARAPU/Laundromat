@@ -538,7 +538,7 @@ export default function OverviewView({
 
             <a
               href={qrDataUrl}
-              download={`spin-and-stay-${selectedMachineObj?.code}.png`}
+              download={`spinzone-${selectedMachineObj?.code}.png`}
               className="qr-action-btn secondary-qr-btn"
             >
               <Download size={16} />

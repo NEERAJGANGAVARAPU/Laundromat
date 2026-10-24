@@ -329,7 +329,7 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
     elements = []
 
     # Title & Subtitle
-    elements.append(Paragraph("Spin & Stay | Wash Club", title_style))
+    elements.append(Paragraph("Spinzone | Wash Club", title_style))
     elements.append(Paragraph("Official Laundry Session & Machine Usage Report", sub_style))
     
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')

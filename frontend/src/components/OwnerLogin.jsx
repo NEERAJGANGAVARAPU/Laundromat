@@ -18,8 +18,8 @@ export default function OwnerLogin({ onLogin }) {
 
     setTimeout(() => {
       const cleanUser = username.trim().toLowerCase();
-      // Accepts 'vikranth' or 'vikranth@spinandstay.co' or 'jordan@spinandstay.co'
-      const isValidUser = cleanUser === 'vikranth' || cleanUser.startsWith('vikranth@') || cleanUser === 'jordan@spinandstay.co';
+      // Accepts 'admin', 'vikranth', 'admin@spinzone.co', 'owner@spinzone.co'
+      const isValidUser = cleanUser === 'vikranth' || cleanUser === 'admin' || cleanUser === 'owner' || cleanUser.includes('spinzone') || cleanUser.startsWith('admin@');
       const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
       const isValidPass = password === storedPass;
 
@@ -27,7 +27,7 @@ export default function OwnerLogin({ onLogin }) {
         setIsLoading(false);
         localStorage.setItem('spin_owner_auth', JSON.stringify({
           username: cleanUser,
-          name: cleanUser === 'vikranth' ? 'Vikranth Chary' : 'Jordan Lee',
+          name: 'Store Admin',
           role: 'Store owner',
           loginTime: new Date().toISOString()
         }));
@@ -63,7 +63,7 @@ export default function OwnerLogin({ onLogin }) {
                 />
               </svg>
             </div>
-            <span className="brand-title">Spin &amp; Stay</span>
+            <span className="brand-title">Spinzone</span>
           </Link>
         </div>
 
@@ -114,8 +114,11 @@ export default function OwnerLogin({ onLogin }) {
         </div>
 
         <div className="login-left-footer">
-          <span>SPIN &amp; STAY &nbsp;/&nbsp; WASH CLUB</span>
-          <Link to="/" className="back-to-customer-link">← Switch to Customer View</Link>
+          <span>SPINZONE &nbsp;/&nbsp; WASH CLUB</span>
+          <div className="powered-by-brand-mini">
+            <span className="powered-by-text-light">Powered by:</span>
+            <img src="/sanielsoft_full_logo.png" alt="SanielSoft" className="sanielsoft-logo-img-sm" />
+          </div>
         </div>
       </div>
 
@@ -149,7 +152,7 @@ export default function OwnerLogin({ onLogin }) {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="vikranth"
+                  placeholder="admin or email"
                   required
                 />
               </div>
@@ -213,9 +216,10 @@ export default function OwnerLogin({ onLogin }) {
             </div>
           </form>
 
-          <p className="bottom-disclaimer">
-            Static design preview. Pre-configured for user: <strong>vikranth</strong>.
-          </p>
+          <div className="login-powered-by-footer">
+            <span className="powered-by-text">Powered by:</span>
+            <img src="/sanielsoft_full_logo.png" alt="SanielSoft" className="sanielsoft-logo-img" />
+          </div>
         </div>
       </div>
     </div>

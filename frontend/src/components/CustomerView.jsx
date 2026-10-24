@@ -472,7 +472,7 @@ export default function CustomerView() {
     <div className="page-wrapper">
       {/* Top simulated browser pill */}
       <div className="browser-header-pill">
-        <span className="lock-icon">🔒</span> spinandstay.co / wash
+        <span className="lock-icon">🔒</span> spinzone.co / wash
       </div>
 
       <div className="app-card">
@@ -496,7 +496,7 @@ export default function CustomerView() {
                 />
               </svg>
             </div>
-            <h1 className="brand-title">Spin &amp; Stay</h1>
+            <h1 className="brand-title">Spinzone</h1>
           </div>
 
           <div className="club-badge">WASH CLUB</div>
@@ -1025,6 +1025,16 @@ export default function CustomerView() {
           <span className="footer-slogan">A little less waiting. A little more you.</span>
           <a href="#help" className="footer-help-link">Need help?</a>
         </footer>
+
+        {/* Powered by SanielSoft inside mobile card rectangle */}
+        <div className="customer-powered-by-wrap">
+          <span className="customer-powered-label">Powered by:</span>
+          <img
+            src="/sanielsoft_full_logo.png"
+            alt="SanielSoft"
+            className="sanielsoft-logo-customer"
+          />
+        </div>
       </div>
     </div>
   );
