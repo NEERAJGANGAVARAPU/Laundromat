@@ -7,6 +7,7 @@ import {
   QrCode,
   Layers,
   Users,
+  Activity,
   Sliders,
   ShieldAlert,
   LogOut,
@@ -40,6 +41,7 @@ import {
   Mail,
   ArrowRight
 } from 'lucide-react';
+import ActivityAnalyticsView from './owner/ActivityAnalyticsView';
 import '../OwnerPortal.css';
 
 // Initial default machines matching Image 2
@@ -922,6 +924,14 @@ export default function OwnerDashboard() {
             <span className="nav-badge">{customers.length}</span>
           </button>
 
+          <button
+            className={`nav-item-btn ${activeNav === 'activity' ? 'active' : ''}`}
+            onClick={() => setActiveNav('activity')}
+          >
+            <Activity size={18} />
+            <span>Activity</span>
+          </button>
+
           <div className="nav-group-label">WORKSPACE</div>
 
           <button
@@ -967,7 +977,7 @@ export default function OwnerDashboard() {
                 : activeNav === 'settings' || activeNav === 'security'
                 ? 'Access Settings'
                 : activeNav === 'activity'
-                ? 'Activity & Audit Trail'
+                ? 'Usage Analytics'
                 : 'Overview'}
             </span>
           </div>
@@ -1198,6 +1208,9 @@ export default function OwnerDashboard() {
               </div>
             </div>
           </div>
+        ) : activeNav === 'activity' ? (
+          /* ================= ACTIVITY & USAGE ANALYTICS (EXACT PDF REPRODUCTION) ================= */
+          <ActivityAnalyticsView apiHost={apiHost} />
         ) : activeNav !== 'reports' ? (
           <>
             {/* Title & Action Section */}

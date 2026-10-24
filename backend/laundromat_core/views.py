@@ -480,3 +480,28 @@ def notifications_view(request):
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def activity_analytics_view(request):
+    """
+    GET /api/activity/analytics/?period=week|day|month|custom&start_date=...&end_date=...&machine=all&customer=all
+    Returns comprehensive usage analytics matching the Spinwise analytics dashboard.
+    """
+    from .activity import get_activity_analytics
+    period = request.query_params.get('period', 'week')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
+    machine_filter = request.query_params.get('machine', 'all')
+    customer_filter = request.query_params.get('customer', 'all')
+    
+    data = get_activity_analytics(
+        period=period,
+        start_date=start_date,
+        end_date=end_date,
+        machine_filter=machine_filter,
+        customer_filter=customer_filter
+    )
+    return Response(data, status=status.HTTP_200_OK)
+
+
+
