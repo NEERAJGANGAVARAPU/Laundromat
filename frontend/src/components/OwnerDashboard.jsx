@@ -36,7 +36,8 @@ import {
   RefreshCw,
   Lock,
   KeyRound,
-  ShieldCheck
+  ShieldCheck,
+  Mail
 } from 'lucide-react';
 import '../OwnerPortal.css';
 
@@ -1513,6 +1514,31 @@ export default function OwnerDashboard() {
                           <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
                             • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
                           </span>
+                        </td>
+                        <td>
+                          {c.status === 'completed' ? (
+                            c.emailSent ? (
+                              <span className="notif-badge sent" title={`Email sent to ${c.realEmail}`}>
+                                <Mail size={12} /> Sent
+                              </span>
+                            ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                              <span className="notif-badge walkin" title="Walk-in (No email provided)">
+                                Walk-in
+                              </span>
+                            ) : (
+                              <span className="notif-badge pending" title="Email not dispatched for this historical session">
+                                <Mail size={12} /> Not Sent
+                              </span>
+                            )
+                          ) : c.status === 'active' ? (
+                            <span className="notif-badge active" title="Scheduled upon cycle finish">
+                              <Clock size={12} /> Scheduled
+                            </span>
+                          ) : (
+                            <span className="notif-badge cancelled" title="Session cancelled">
+                              Cancelled
+                            </span>
+                          )}
                         </td>
                         <td>
                           <button
