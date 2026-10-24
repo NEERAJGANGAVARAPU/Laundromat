@@ -1,0 +1,1068 @@
+/* ============================================================
+   SPINWISE USAGE ANALYTICS / ACTIVITY VIEW STYLES
+   Exact reproduction of PDF design with modern aesthetics
+   ============================================================ */
+
+.activity-analytics-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 8px 12px 48px 12px;
+  color: #0b1a44;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+/* ------------------------------------------------------------
+   1. HERO HEADER
+   ------------------------------------------------------------ */
+.activity-hero-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
+  gap: 16px;
+}
+
+.activity-hero-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-category-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2558ea;
+  margin-bottom: 6px;
+}
+
+.activity-hero-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0b1a44;
+  margin: 0 0 6px 0;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.activity-hero-desc {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+.activity-hero-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.data-source-segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.source-segment-btn {
+  border: none;
+  background: transparent;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  outline: none;
+}
+
+.source-segment-btn:hover {
+  color: #0b1a44;
+}
+
+.source-segment-btn.active {
+  background-color: #ffffff;
+  color: #0b1a44;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.live-status-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: liveDotGlow 1.8s ease-in-out infinite;
+}
+
+@keyframes liveDotGlow {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  }
+}
+
+/* ------------------------------------------------------------
+   2. ANALYSIS PERIOD TOOLBAR
+   ------------------------------------------------------------ */
+.activity-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.toolbar-left-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.period-pill-group {
+  display: inline-flex;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.period-btn {
+  border: none;
+  background: transparent;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  outline: none;
+}
+
+.period-btn:hover {
+  color: #0b1a44;
+}
+
+.period-btn.active {
+  background-color: #0b1a44;
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(11, 26, 68, 0.2);
+}
+
+.period-date-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+.custom-date-inputs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-date-input {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0b1a44;
+  outline: none;
+  font-family: inherit;
+}
+
+.date-sep {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.operating-hours-text {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.toolbar-right-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.activity-select {
+  appearance: none;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 32px 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0b1a44;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.activity-select:focus {
+  border-color: #2558ea;
+  background-color: #ffffff;
+}
+
+.select-chevron {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: #64748b;
+}
+
+.activity-refresh-btn {
+  border: 1px solid #cbd5e1;
+  background-color: #f8fafc;
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #475569;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.activity-refresh-btn:hover {
+  background-color: #f1f5f9;
+  color: #0b1a44;
+}
+
+.spinning {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------
+   3. FOUR TOP KPI SUMMARY CARDS
+   ------------------------------------------------------------ */
+.activity-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.activity-kpi-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.kpi-bullet {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.bullet-blue {
+  color: #2563eb;
+}
+
+.bullet-green {
+  color: #10b981;
+}
+
+.bullet-navy {
+  color: #0b1a44;
+}
+
+.kpi-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.kpi-number {
+  font-size: 34px;
+  font-weight: 800;
+  color: #0b1a44;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+.kpi-subtext {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* ------------------------------------------------------------
+   4. SECTION: YOUR USAGE, AT EVERY SCALE
+   ------------------------------------------------------------ */
+.activity-section-block {
+  margin-bottom: 24px;
+}
+
+.section-block-header {
+  margin-bottom: 14px;
+}
+
+.section-block-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0b1a44;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.section-block-sub {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+.scale-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.scale-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+.scale-card.highlighted {
+  border-color: #93c5fd;
+  box-shadow: 0 4px 12px rgba(37, 88, 234, 0.06);
+}
+
+.scale-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.scale-tag {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0b1a44;
+  letter-spacing: 0.04em;
+}
+
+.scale-date {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.scale-metrics-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scale-big-val {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0b1a44;
+  letter-spacing: -0.01em;
+}
+
+.scale-val-sub {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: 3px;
+}
+
+.scale-sub-metrics {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.scale-metric-cycles {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+.scale-metric-util {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.scale-chart-title {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 12px;
+}
+
+/* Bar Chart Container */
+.scale-barchart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 90px;
+  padding-top: 6px;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 8px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+}
+
+.bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.bar-fill {
+  width: 100%;
+  max-width: 22px;
+  border-radius: 3px 3px 0 0;
+  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bar-blue {
+  background-color: #2563eb;
+}
+
+.bar-navy {
+  background-color: #0b1a44;
+}
+
+.bar-teal {
+  background-color: #00a86b;
+}
+
+.bar-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------------------
+   5. TWO-COLUMN LAYOUTS (HEATMAP & DONUT)
+   ------------------------------------------------------------ */
+.activity-two-col-grid {
+  display: grid;
+  grid-template-columns: 1.55fr 1fr;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.activity-panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  gap: 12px;
+}
+
+.panel-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b1a44;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.panel-card-subtitle {
+  font-size: 12.5px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+.panel-date-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border-radius: 6px;
+  color: #334155;
+  white-space: nowrap;
+}
+
+/* Heatmap Table */
+.heatmap-table-container {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
+.heatmap-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+}
+
+.heatmap-table th {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-align: center;
+  padding: 4px;
+}
+
+.heatmap-corner-th {
+  width: 44px;
+}
+
+.heatmap-total-th {
+  font-size: 11px;
+  font-weight: 800;
+  color: #0b1a44;
+  width: 44px;
+}
+
+.heatmap-day-td {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  text-align: left;
+  padding-left: 2px;
+}
+
+.heatmap-cell-td {
+  padding: 0;
+  text-align: center;
+}
+
+.heatmap-cell-block {
+  border-radius: 4px;
+  padding: 7px 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 0.15s ease;
+  user-select: none;
+}
+
+.heatmap-cell-block:hover {
+  transform: scale(1.08);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.heatmap-row-total-td {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0b1a44;
+  text-align: center;
+}
+
+/* Heatmap Legend */
+.heatmap-legend-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.legend-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.legend-gradient-bar {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.legend-gradient-bar span {
+  width: 14px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+/* Machine Time Utilization (Right Column) */
+.utilization-formula-box {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+}
+
+.formula-main {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 3px 0;
+}
+
+.formula-desc {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Donut Charts */
+.donut-chart-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  margin: 12px 0 20px 0;
+  flex-wrap: wrap;
+}
+
+.donut-container {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.donut-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.donut-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.donut-center-big {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0b1a44;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.donut-center-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.donut-legend-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.legend-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.dot-teal {
+  background-color: #00c49f;
+}
+
+.dot-gray {
+  background-color: #cbd5e1;
+}
+
+.dot-navy {
+  background-color: #0b1a44;
+}
+
+.dot-sky {
+  background-color: #38bdf8;
+}
+
+.legend-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.legend-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0b1a44;
+  margin-top: 1px;
+}
+
+/* ------------------------------------------------------------
+   6. SECTION: EVERY MACHINE, IN VIEW & WASH VS. DRY
+   ------------------------------------------------------------ */
+.unit-pill-badges {
+  display: flex;
+  gap: 6px;
+}
+
+.unit-summary-pill {
+  padding: 4px 10px;
+  background-color: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.machine-usage-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+}
+
+.machine-usage-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.machine-usage-table th {
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e2e8f0;
+  letter-spacing: 0.04em;
+}
+
+.machine-usage-table td {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.machine-usage-table tr:hover {
+  background-color: #fafbfd;
+}
+
+.machine-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.machine-bullet {
+  font-size: 14px;
+}
+
+.bullet-washer {
+  color: #2563eb;
+}
+
+.bullet-dryer {
+  color: #00c49f;
+}
+
+.machine-code-text {
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+.machine-type-text {
+  font-weight: 500;
+  color: #64748b;
+}
+
+.machine-cycles-val {
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+.machine-active-val {
+  font-weight: 600;
+  color: #334155;
+}
+
+.utilization-bar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-progress-track {
+  width: 46px;
+  height: 6px;
+  background-color: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background-color: #2558ea;
+  border-radius: 9999px;
+}
+
+.utilization-pct-text {
+  font-weight: 700;
+  color: #0b1a44;
+  font-size: 12px;
+}
+
+.machine-idle-val {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.machine-table-footnote {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 12px 0 0 0;
+}
+
+/* Time Utilization by Type */
+.type-utilization-block {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+  margin-top: 12px;
+}
+
+.type-utilization-header {
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.type-progress-row {
+  margin-bottom: 12px;
+}
+
+.type-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 5px;
+}
+
+.type-val-bold {
+  font-weight: 800;
+  color: #0b1a44;
+}
+
+.horizontal-gauge-track {
+  width: 100%;
+  height: 8px;
+  background-color: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.horizontal-gauge-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.4s ease;
+}
+
+.fill-navy {
+  background-color: #0b1a44;
+}
+
+.fill-sky {
+  background-color: #38bdf8;
+}
+
+.type-utilization-footnote {
+  font-size: 11px;
+  color: #94a3b8;
+  display: block;
+  margin-top: 10px;
+}
+
+/* ------------------------------------------------------------
+   7. SECTION: THE WEEK AT A GLANCE BANNER
+   ------------------------------------------------------------ */
+.glance-insights-banner {
+  background-color: #f1f5fd;
+  border: 1px solid #e0e7ff;
+  border-radius: 12px;
+  padding: 16px 22px;
+  margin-bottom: 22px;
+}
+
+.glance-banner-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #4338ca;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.glance-insights-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.glance-insight-item {
+  flex: 1;
+  min-width: 200px;
+}
+
+.insight-text {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+/* ------------------------------------------------------------
+   8. FOOTER NOTE
+   ------------------------------------------------------------ */
+.activity-page-footer {
+  text-align: left;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 14px;
+}
+
+.activity-page-footer p {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE DESIGN
+   ------------------------------------------------------------ */
+@media (max-width: 1080px) {
+  .activity-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .scale-comparison-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-two-col-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .activity-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-left-group,
+  .toolbar-right-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
