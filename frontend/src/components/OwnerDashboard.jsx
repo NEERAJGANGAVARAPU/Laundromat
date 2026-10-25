@@ -1530,6 +1530,11 @@ export default function OwnerDashboard() {
                 <div className="section-title-group">
                   <h2 className="section-title">Customer sessions</h2>
                   <span className="active-sessions-tag">• {occupiedCount} active</span>
+                  {customers.length > 10 && (
+                    <span className="scroll-records-badge" title="Showing 10 records at a time with scrollable history">
+                      Scroll to view all {customers.length}
+                    </span>
+                  )}
                 </div>
 
                 <span className="masked-toggle-note">
@@ -1537,7 +1542,7 @@ export default function OwnerDashboard() {
                 </span>
               </div>
 
-              <div className="table-wrapper">
+              <div className="table-wrapper sessions-table-scroll-container">
                 <table className="sessions-table">
                   <thead>
                     <tr>
@@ -1642,7 +1647,10 @@ export default function OwnerDashboard() {
                   </tbody>
                 </table>
               </div>
-              <p className="table-caption-note">Showing all {customers.length} customer records ({occupiedCount} currently active)</p>
+              <p className="table-caption-note">
+                Showing all {customers.length} customer records ({occupiedCount} currently active)
+                {customers.length > 10 ? ' · Scroll within table to view more' : ''}
+              </p>
             </section>
 
             {/* ================= QR LABELS SECTION ================= */}
