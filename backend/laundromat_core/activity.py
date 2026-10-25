@@ -32,9 +32,15 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
 
     # 2. Determine date bounds based on period
     if period == 'day':
-        s_date = today
-        e_date = today
-        selected_label = today.strftime('%a, %d %b %Y')
+        if start_date:
+            try:
+                s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            except ValueError:
+                s_date = today
+        else:
+            s_date = today
+        e_date = s_date
+        selected_label = s_date.strftime('%a, %d %b %Y')
     elif period == 'month':
         s_date = today - timedelta(days=29)
         e_date = today
@@ -42,8 +48,11 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
     elif period == 'custom' and start_date:
         try:
             s_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            e_date = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else today
-            selected_label = f"{s_date.strftime('%d %b %Y')} – {e_date.strftime('%d %b %Y')}"
+            e_date = datetime.strptime(end_date, '%Y-%m-%d').date() if end_date else s_date
+            if s_date == e_date:
+                selected_label = s_date.strftime('%a, %d %b %Y')
+            else:
+                selected_label = f"{s_date.strftime('%d %b %Y')} – {e_date.strftime('%d %b %Y')}"
         except ValueError:
             s_date = today - timedelta(days=6)
             e_date = today
@@ -101,12 +110,13 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
     washers_count = all_machines.filter(machine_type='washer').count()
     dryers_count = all_machines.filter(machine_type='dryer').count()
 
-    # Operating hours: 6 AM to 8 PM = 14 hours / day = 840 mins / day per machine
-    HOURS_PER_DAY = 14
+    # Operating hours: Open 24 Hours = 24 hours / day = 1440 mins / day per machine
+    HOURS_PER_DAY = 24
     TOTAL_AVAIL_MINUTES_PER_UNIT = HOURS_PER_DAY * 60 * days_in_period
     TOTAL_STORE_AVAIL_MINUTES = total_machine_count * TOTAL_AVAIL_MINUTES_PER_UNIT
 
     # 5. Top KPI Card Metrics
+    total_customers_count = filtered_sessions.count()
     unique_customers_count = filtered_sessions.values('customer_email').distinct().count()
     completed_cycles_count = completed_sessions.count()
 
@@ -133,11 +143,12 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
     total_avail_hours = (total_machine_count * HOURS_PER_DAY * days_in_period)
     avail_time_str = f"{total_avail_hours}h available"
 
-    # Compute Busiest 2-Hour Window & Busiest Day
-    time_slot_counts = {
-        '6–8 AM': 0, '8–10 AM': 0, '10–12 PM': 0,
-        '12–2 PM': 0, '2–4 PM': 0, '4–6 PM': 0, '6–8 PM': 0
-    }
+    # Compute Busiest 2-Hour Window across full 24-hour cycle & Busiest Day
+    two_hour_slots = [
+        "12–2 AM", "2–4 AM", "4–6 AM", "6–8 AM", "8–10 AM", "10–12 PM",
+        "12–2 PM", "2–4 PM", "4–6 PM", "6–8 PM", "8–10 PM", "10–12 AM"
+    ]
+    time_slot_counts = {slot: 0 for slot in two_hour_slots}
     day_name_counts = {
         'Monday': 0, 'Tuesday': 0, 'Wednesday': 0,
         'Thursday': 0, 'Friday': 0, 'Saturday': 0, 'Sunday': 0
@@ -150,62 +161,79 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
         if day_full in day_name_counts:
             day_name_counts[day_full] += 1
 
-        if 6 <= h < 8:
-            time_slot_counts['6–8 AM'] += 1
-        elif 8 <= h < 10:
-            time_slot_counts['8–10 AM'] += 1
-        elif 10 <= h < 12:
-            time_slot_counts['10–12 PM'] += 1
-        elif 12 <= h < 14:
-            time_slot_counts['12–2 PM'] += 1
-        elif 14 <= h < 16:
-            time_slot_counts['2–4 PM'] += 1
-        elif 16 <= h < 18:
-            time_slot_counts['4–6 PM'] += 1
-        else:
-            time_slot_counts['6–8 PM'] += 1
+        slot_idx = min(max(h // 2, 0), 11)
+        time_slot_counts[two_hour_slots[slot_idx]] += 1
 
     busiest_slot = max(time_slot_counts, key=time_slot_counts.get) if any(time_slot_counts.values()) else "12–2 PM"
-    busiest_day = max(day_name_counts, key=day_name_counts.get) if any(day_name_counts.values()) else "Wednesday"
-    busiest_slot_short = busiest_slot.replace(' AM', '').replace(' PM', ' PM')
+    busiest_day = max(day_name_counts, key=day_name_counts.get) if any(day_name_counts.values()) else (s_date.strftime('%A') if s_date else "Today")
+    busiest_slot_short = busiest_slot
+
+    # Total Store Visits = distinct customer visits per calendar day
+    total_store_visits = filtered_sessions.values('customer_email', 'started_at__date').distinct().count()
+
+    avg_per_cust = round(total_customers_count / unique_customers_count, 1) if unique_customers_count > 0 else 1.0
 
     # Subtexts for Top Cards
-    if period == 'day':
-        cust_sub = "Unique visitors today"
+    if period == 'day' or (period == 'custom' and s_date == e_date):
+        visit_word = 'visit' if total_store_visits == 1 else 'visits'
+        session_word = 'session' if total_customers_count == 1 else 'sessions'
+        cust_sub = f"{total_store_visits} store {visit_word} · {total_customers_count} machine {session_word} on {s_date.strftime('%a, %d %b')}"
+    elif period == 'custom':
+        cust_sub = f"{total_store_visits} store visits · {total_customers_count} machine sessions ({s_date.strftime('%d %b')} – {e_date.strftime('%d %b')})"
     elif period == 'month':
-        cust_sub = "Unique visitors this month"
+        cust_sub = f"{total_store_visits:,} store visits · {total_customers_count:,} machine sessions this month"
     else:
-        cust_sub = "Unique visitors this week"
+        cust_sub = f"{total_store_visits} store visits · {total_customers_count} machine sessions this week"
 
     top_metrics = {
         "customers": unique_customers_count,
+        "unique_customers": unique_customers_count,
+        "total_visits": total_store_visits,
+        "total_sessions": total_customers_count,
+        "avg_sessions_per_customer": avg_per_cust,
         "customers_sub": cust_sub,
         "completed_cycles": completed_cycles_count,
         "completed_cycles_sub": f"{completed_washers} wash · {completed_dryers} dry",
         "utilization": f"{overall_utilization_pct}%",
         "utilization_sub": f"{active_time_str} active / {avail_time_str}",
         "busiest_window": busiest_slot_short,
-        "busiest_window_sub": f"{busiest_day} is the busiest day"
+        "busiest_window_sub": f"{busiest_day} leads this period" if any(day_name_counts.values()) else "Based on active cycles"
     }
 
     # 6. "Your usage, at every scale" (DAY, WEEK, MONTH calculations)
-    # Scale A: DAY (Today's metrics)
-    day_sessions = LaundrySession.objects.filter(started_at__date=today)
+    # Target day for Scale A (DAY) — dynamically reflects chosen day in custom/day mode
+    target_day = s_date if (period in ['day', 'custom']) else today
+
+    day_sessions = LaundrySession.objects.filter(started_at__date=target_day)
+    if machine_filter == 'washers':
+        day_sessions = day_sessions.filter(Q(machine__machine_type='washer') | Q(machine_code__istartswith='w'))
+    elif machine_filter == 'dryers':
+        day_sessions = day_sessions.filter(Q(machine__machine_type='dryer') | Q(machine_code__istartswith='d'))
+    elif machine_filter != 'all':
+        day_sessions = day_sessions.filter(machine_code__iexact=machine_filter)
+
     day_completed = day_sessions.filter(status='completed')
-    day_cust = day_sessions.values('customer_email').distinct().count()
+    day_cust = day_sessions.count()
     day_cycles = day_completed.count()
     day_active_mins = day_completed.aggregate(total=Sum('duration_minutes'))['total'] or 0
     day_avail_mins = total_machine_count * HOURS_PER_DAY * 60
     day_util = round((day_active_mins / day_avail_mins) * 100, 1) if day_avail_mins > 0 else 0.0
 
+    day_unique_cust = day_sessions.values('customer_email').distinct().count()
+
     day_bars_data = [
+        {"label": "12a", "hour_range": (0, 2)},
+        {"label": "2a", "hour_range": (2, 4)},
+        {"label": "4a", "hour_range": (4, 6)},
         {"label": "6a", "hour_range": (6, 8)},
         {"label": "8a", "hour_range": (8, 10)},
         {"label": "10a", "hour_range": (10, 12)},
         {"label": "12p", "hour_range": (12, 14)},
         {"label": "2p", "hour_range": (14, 16)},
         {"label": "4p", "hour_range": (16, 18)},
-        {"label": "6p", "hour_range": (18, 24)}
+        {"label": "6p", "hour_range": (18, 20)},
+        {"label": "8p", "hour_range": (20, 22)},
+        {"label": "10p", "hour_range": (22, 24)}
     ]
     for b in day_bars_data:
         hr_min, hr_max = b["hour_range"]
@@ -213,20 +241,41 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
         b["value"] = cnt
     max_day_bar = max([b["value"] for b in day_bars_data] or [1]) or 1
     for b in day_bars_data:
-        b["pct"] = round((b["value"] / max_day_bar) * 100) if max_day_bar > 0 else 10
+        b["pct"] = round((b["value"] / max_day_bar) * 100) if max_day_bar > 0 else 0
 
-    # Scale B: WEEK (Last 7 Days)
-    w_start = today - timedelta(days=6)
-    week_sessions = LaundrySession.objects.filter(started_at__date__gte=w_start, started_at__date__lte=today)
+    day_visits = day_sessions.values('customer_email', 'started_at__date').distinct().count()
+
+    # Scale B: WEEK (Anchored to custom range if custom, otherwise last 7 days)
+    if period == 'custom':
+        if (e_date - s_date).days >= 6:
+            w_start = s_date
+            w_end = s_date + timedelta(days=6)
+        else:
+            w_end = e_date
+            w_start = w_end - timedelta(days=6)
+    else:
+        w_end = today
+        w_start = today - timedelta(days=6)
+
+    week_sessions = LaundrySession.objects.filter(started_at__date__gte=w_start, started_at__date__lte=w_end)
+    if machine_filter == 'washers':
+        week_sessions = week_sessions.filter(Q(machine__machine_type='washer') | Q(machine_code__istartswith='w'))
+    elif machine_filter == 'dryers':
+        week_sessions = week_sessions.filter(Q(machine__machine_type='dryer') | Q(machine_code__istartswith='d'))
+    elif machine_filter != 'all':
+        week_sessions = week_sessions.filter(machine_code__iexact=machine_filter)
+
     week_completed = week_sessions.filter(status='completed')
-    week_cust = week_sessions.values('customer_email').distinct().count()
+    week_cust = week_sessions.count()
+    week_unique_cust = week_sessions.values('customer_email').distinct().count()
+    week_visits = week_sessions.values('customer_email', 'started_at__date').distinct().count()
     week_cycles = week_completed.count()
     week_active_mins = week_completed.aggregate(total=Sum('duration_minutes'))['total'] or 0
     week_avail_mins = total_machine_count * HOURS_PER_DAY * 60 * 7
     week_util = round((week_active_mins / week_avail_mins) * 100, 1) if week_avail_mins > 0 else 0.0
 
     week_bars_data = []
-    # 7 days from w_start to today
+    # 7 days from w_start to w_end
     for i in range(7):
         curr_d = w_start + timedelta(days=i)
         d_label = curr_d.strftime('%a')[0]  # M, T, W, T, F, S, S
@@ -234,13 +283,28 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
         week_bars_data.append({"label": d_label, "value": cnt, "date": curr_d.strftime('%Y-%m-%d')})
     max_week_bar = max([b["value"] for b in week_bars_data] or [1]) or 1
     for b in week_bars_data:
-        b["pct"] = round((b["value"] / max_week_bar) * 100) if max_week_bar > 0 else 10
+        b["pct"] = round((b["value"] / max_week_bar) * 100) if max_week_bar > 0 else 0
 
-    # Scale C: MONTH (Last 30 Days)
-    m_start = today - timedelta(days=29)
-    month_sessions = LaundrySession.objects.filter(started_at__date__gte=m_start, started_at__date__lte=today)
+    # Scale C: MONTH (Last 30 Days anchored to selected custom date or today)
+    if period == 'custom':
+        m_end = e_date
+        m_start = m_end - timedelta(days=29)
+    else:
+        m_end = today
+        m_start = today - timedelta(days=29)
+
+    month_sessions = LaundrySession.objects.filter(started_at__date__gte=m_start, started_at__date__lte=m_end)
+    if machine_filter == 'washers':
+        month_sessions = month_sessions.filter(Q(machine__machine_type='washer') | Q(machine_code__istartswith='w'))
+    elif machine_filter == 'dryers':
+        month_sessions = month_sessions.filter(Q(machine__machine_type='dryer') | Q(machine_code__istartswith='d'))
+    elif machine_filter != 'all':
+        month_sessions = month_sessions.filter(machine_code__iexact=machine_filter)
+
     month_completed = month_sessions.filter(status='completed')
-    month_cust = month_sessions.values('customer_email').distinct().count()
+    month_cust = month_sessions.count()
+    month_unique_cust = month_sessions.values('customer_email').distinct().count()
+    month_visits = month_sessions.values('customer_email', 'started_at__date').distinct().count()
     month_cycles = month_completed.count()
     month_active_mins = month_completed.aggregate(total=Sum('duration_minutes'))['total'] or 0
     month_avail_mins = total_machine_count * HOURS_PER_DAY * 60 * 30
@@ -257,18 +321,21 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
     for mb in month_bars_data:
         d_from, d_to = mb["days"]
         bin_start = m_start + timedelta(days=d_from)
-        bin_end = min(m_start + timedelta(days=d_to - 1), today)
+        bin_end = min(m_start + timedelta(days=d_to - 1), m_end)
         cnt = month_completed.filter(started_at__date__gte=bin_start, started_at__date__lte=bin_end).count()
         mb["value"] = cnt
     max_month_bar = max([b["value"] for b in month_bars_data] or [1]) or 1
     for mb in month_bars_data:
-        mb["pct"] = round((mb["value"] / max_month_bar) * 100) if max_month_bar > 0 else 10
+        mb["pct"] = round((mb["value"] / max_month_bar) * 100) if max_month_bar > 0 else 0
 
     scales = {
         "day": {
             "tag": "DAY",
-            "label": today.strftime('%a, %d %b'),
-            "customers": day_cust,
+            "label": target_day.strftime('%a, %d %b'),
+            "customers": day_unique_cust,
+            "total_visits": day_visits,
+            "total_sessions": day_cust,
+            "unique_customers": day_unique_cust,
             "cycles": day_cycles,
             "utilization": f"{day_util}%",
             "chart_title": "Cycles by two-hour window",
@@ -276,17 +343,23 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
         },
         "week": {
             "tag": "WEEK",
-            "label": f"{w_start.strftime('%d')}–{today.strftime('%d %b')}",
-            "customers": week_cust,
+            "label": f"{w_start.strftime('%d %b')}–{w_end.strftime('%d %b')}",
+            "customers": week_unique_cust,
+            "total_visits": week_visits,
+            "total_sessions": week_cust,
+            "unique_customers": week_unique_cust,
             "cycles": week_cycles,
             "utilization": f"{week_util}%",
             "chart_title": "Completed cycles by day",
             "bars": week_bars_data
         },
         "month": {
-            "tag": "MONTH",
-            "label": f"{m_start.strftime('%d %b')}–{today.strftime('%d %b')} · 30 days",
-            "customers": f"{month_cust:,}",
+            "tag": "PAST 30 DAYS",
+            "label": f"{m_start.strftime('%d %b')}–{m_end.strftime('%d %b')} · 30 days",
+            "customers": f"{month_unique_cust:,}",
+            "total_visits": f"{month_visits:,}",
+            "total_sessions": f"{month_cust:,}",
+            "unique_customers": f"{month_unique_cust:,}",
             "cycles": f"{month_cycles:,}",
             "utilization": f"{month_util}%",
             "chart_title": "Completed cycles · days in 30-day period",
@@ -294,10 +367,10 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
         }
     }
 
-    # 7. Customer Arrivals Heatmap Matrix (7 days x 7 slots)
-    time_slots = ["6–8a", "8–10a", "10–12p", "12–2p", "2–4p", "4–6p", "6–8p"]
+    # 7. Customer Arrivals Heatmap Matrix (7 days x 12 slots for 24-Hour Cycle)
+    time_slots = ["12–2a", "2–4a", "4–6a", "6–8a", "8–10a", "10–12p", "12–2p", "2–4p", "4–6p", "6–8p", "8–10p", "10–12a"]
     day_rows_order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    heatmap_matrix = {d: [0] * 7 for d in day_rows_order}
+    heatmap_matrix = {d: [0] * len(time_slots) for d in day_rows_order}
 
     # "Customer arrivals · one customer counted at first visit each day"
     # To be strictly accurate to definition: group by customer_email + started_at__date
@@ -314,20 +387,7 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
 
         d_str = dt.strftime('%a')
         h = dt.hour
-        if h < 8:
-            slot_idx = 0
-        elif h < 10:
-            slot_idx = 1
-        elif h < 12:
-            slot_idx = 2
-        elif h < 14:
-            slot_idx = 3
-        elif h < 16:
-            slot_idx = 4
-        elif h < 18:
-            slot_idx = 5
-        else:
-            slot_idx = 6
+        slot_idx = min(max(h // 2, 0), len(time_slots) - 1)
 
         if d_str in heatmap_matrix:
             heatmap_matrix[d_str][slot_idx] += 1
@@ -400,12 +460,14 @@ def get_activity_analytics(period='week', start_date=None, end_date=None, machin
     return {
         "period": period,
         "selected_label": selected_label,
-        "operating_hours": "Mon–Sun · Open 6 AM–8 PM",
+        "operating_hours": "Mon–Sun · Open 24 Hours",
         "is_realtime": True,
         "top_metrics": top_metrics,
         "scales": scales,
         "heatmap": {
             "period_label": selected_label,
+            "total_visits": total_store_visits,
+            "unique_customers": unique_customers_count,
             "time_slots": time_slots,
             "rows": heatmap_rows
         },

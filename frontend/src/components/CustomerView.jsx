@@ -12,7 +12,6 @@ import {
   Play,
   Info,
   ShoppingBag,
-  ExternalLink,
   ChevronLeft,
   RotateCcw,
   Shield,
@@ -470,11 +469,6 @@ export default function CustomerView() {
 
   return (
     <div className="page-wrapper">
-      {/* Top simulated browser pill */}
-      <div className="browser-header-pill">
-        <span className="lock-icon">🔒</span> spinzone.co / wash
-      </div>
-
       <div className="app-card">
         {/* Navigation Bar */}
         <header className="brand-header">
@@ -498,8 +492,6 @@ export default function CustomerView() {
             </div>
             <h1 className="brand-title">Spinzone</h1>
           </div>
-
-          <div className="club-badge">WASH CLUB</div>
         </header>
 
         {/* 3-segment progress bar */}
@@ -751,25 +743,6 @@ export default function CustomerView() {
               </div>
             </div>
 
-            {/* Want browser heads up? */}
-            <div className="notification-card">
-              <div className="notif-header">
-                <Bell size={20} className="notif-bell" />
-                <h4 className="notif-title">Want a browser heads-up?</h4>
-              </div>
-              <p className="notif-text">
-                {notifPermission === 'granted'
-                  ? 'Browser notifications are enabled! We will alert you with 5 minutes to go.'
-                  : "Allow notifications in your browser for a reminder. Permission hasn't been requested yet."}
-              </p>
-              {notifPermission !== 'granted' && (
-                <button type="button" className="notif-enable-btn" onClick={handleRequestNotif}>
-                  <span>Enable notifications</span>
-                  <ExternalLink size={16} />
-                </button>
-              )}
-            </div>
-
             {/* Error banner if reservation failed */}
             {bookingError && (
               <div style={{ color: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px', marginBottom: '12px', fontSize: '14px' }}>
@@ -840,23 +813,6 @@ export default function CustomerView() {
                 <span className="stat-val blue-highlight">At 05:00 left</span>
               </div>
             </div>
-
-            {/* Browser notification heads-up if not enabled */}
-            {notifPermission !== 'granted' && (
-              <div className="notification-card">
-                <div className="notif-header">
-                  <Bell size={20} className="notif-bell" />
-                  <h4 className="notif-title">Want a browser heads-up?</h4>
-                </div>
-                <p className="notif-text">
-                  Allow notifications in your browser for a reminder. Permission hasn't been requested yet.
-                </p>
-                <button type="button" className="notif-enable-btn" onClick={handleRequestNotif}>
-                  <span>Enable notifications</span>
-                  <ExternalLink size={16} />
-                </button>
-              </div>
-            )}
 
             {/* Keep page open notice */}
             <div className="info-callout">
@@ -1023,7 +979,6 @@ export default function CustomerView() {
         {/* Global App Footer */}
         <footer className="app-footer">
           <span className="footer-slogan">A little less waiting. A little more you.</span>
-          <a href="#help" className="footer-help-link">Need help?</a>
         </footer>
 
         {/* Powered by SanielSoft inside mobile card rectangle */}

@@ -1058,8 +1058,9 @@
   padding-top: 20px;
   border-top: 1px solid #ebdccc;
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  text-align: center;
   font-size: 13px;
   color: #475569;
   font-weight: 500;

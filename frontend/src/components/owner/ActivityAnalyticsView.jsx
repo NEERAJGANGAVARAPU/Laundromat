@@ -10,34 +10,38 @@ import {
   Clock,
   Flame,
   ArrowUpRight,
-  Sparkles,
   Database,
   Radio
 } from 'lucide-react';
 import '../../ActivityAnalytics.css';
 
 export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const defaultStartStr = new Date(Date.now() - 6 * 86400000).toISOString().split('T')[0];
   const [period, setPeriod] = useState('week'); // 'day', 'week', 'month', 'custom'
-  const [customStart, setCustomStart] = useState('2026-10-18');
-  const [customEnd, setCustomEnd] = useState('2026-10-24');
+  const [customStart, setCustomStart] = useState(defaultStartStr);
+  const [customEnd, setCustomEnd] = useState(todayStr);
   const [machineFilter, setMachineFilter] = useState('all');
   const [customerFilter, setCustomerFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
-  const [dataSource, setDataSource] = useState('realtime'); // 'realtime' or 'sample'
 
-  // Sample static reference data matching the PDF benchmark
+  // Sample static reference data matching 24h cycle
   const SAMPLE_DATA = {
     period: 'week',
     selected_label: '12–18 Oct 2026',
-    operating_hours: 'Mon–Sun · Open 6 AM–8 PM',
+    operating_hours: 'Mon–Sun · Open 24 Hours',
     is_realtime: false,
     top_metrics: {
-      customers: 420,
-      customers_sub: 'Unique visitors this week',
+      customers: 240,
+      unique_customers: 240,
+      total_visits: 310,
+      total_sessions: 420,
+      avg_sessions_per_customer: 1.8,
+      customers_sub: '310 store visits · 420 machine sessions this week',
       completed_cycles: 560,
       completed_cycles_sub: '320 wash · 240 dry',
       utilization: '42.5%',
-      utilization_sub: '333h 20m active / 784h available',
+      utilization_sub: '333h 20m active / 1,344h available',
       busiest_window: '4–6 PM',
       busiest_window_sub: 'Saturday is the busiest day'
     },
@@ -45,24 +49,33 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
       day: {
         tag: 'DAY',
         label: 'Sat, 17 Oct',
-        customers: 80,
+        customers: 65,
+        total_visits: 65,
+        total_sessions: 80,
         cycles: 107,
         utilization: '56.8%',
         chart_title: 'Cycles by two-hour window',
         bars: [
+          { label: '12a', value: 2, pct: 7 },
+          { label: '2a', value: 1, pct: 4 },
+          { label: '4a', value: 3, pct: 11 },
           { label: '6a', value: 8, pct: 28 },
           { label: '8a', value: 12, pct: 42 },
           { label: '10a', value: 16, pct: 57 },
           { label: '12p', value: 14, pct: 50 },
           { label: '2p', value: 18, pct: 64 },
           { label: '4p', value: 28, pct: 100 },
-          { label: '6p', value: 15, pct: 53 }
+          { label: '6p', value: 15, pct: 53 },
+          { label: '8p', value: 9, pct: 32 },
+          { label: '10p', value: 4, pct: 14 }
         ]
       },
       week: {
         tag: 'WEEK',
         label: '12–18 Oct',
-        customers: 420,
+        customers: 240,
+        total_visits: 310,
+        total_sessions: 420,
         cycles: 560,
         utilization: '42.5%',
         chart_title: 'Completed cycles by day',
@@ -77,9 +90,11 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
         ]
       },
       month: {
-        tag: 'MONTH',
+        tag: 'PAST 30 DAYS',
         label: '19 Sep–18 Oct · 30 days',
-        customers: '1,800',
+        customers: '950',
+        total_visits: '1,420',
+        total_sessions: '1,800',
         cycles: '2,400',
         utilization: '42.5%',
         chart_title: 'Completed cycles · days in 30-day period',
@@ -94,24 +109,26 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
     },
     heatmap: {
       period_label: '12–18 Oct',
-      time_slots: ['6–8a', '8–10a', '10–12p', '12–2p', '2–4p', '4–6p', '6–8p'],
+      total_visits: 310,
+      unique_customers: 240,
+      time_slots: ['12–2a', '2–4a', '4–6a', '6–8a', '8–10a', '10–12p', '12–2p', '2–4p', '4–6p', '6–8p', '8–10p', '10–12a'],
       rows: [
-        { day: 'Mon', slots: [3, 5, 7, 6, 8, 12, 7], total: 48 },
-        { day: 'Tue', slots: [3, 6, 7, 7, 8, 13, 7], total: 51 },
-        { day: 'Wed', slots: [4, 6, 8, 7, 9, 14, 7], total: 55 },
-        { day: 'Thu', slots: [4, 6, 8, 8, 10, 15, 7], total: 58 },
-        { day: 'Fri', slots: [4, 7, 9, 9, 11, 16, 8], total: 64 },
-        { day: 'Sat', slots: [5, 8, 11, 11, 14, 21, 10], total: 80 },
-        { day: 'Sun', slots: [4, 7, 9, 9, 11, 16, 8], total: 64 }
+        { day: 'Mon', slots: [1, 1, 2, 3, 5, 7, 6, 8, 12, 7, 4, 2], total: 58 },
+        { day: 'Tue', slots: [1, 0, 1, 3, 6, 7, 7, 8, 13, 7, 5, 3], total: 61 },
+        { day: 'Wed', slots: [2, 1, 2, 4, 6, 8, 7, 9, 14, 7, 5, 3], total: 68 },
+        { day: 'Thu', slots: [1, 1, 2, 4, 6, 8, 8, 10, 15, 7, 6, 2], total: 70 },
+        { day: 'Fri', slots: [2, 1, 2, 4, 7, 9, 9, 11, 16, 8, 7, 4], total: 80 },
+        { day: 'Sat', slots: [3, 2, 3, 5, 8, 11, 11, 14, 21, 10, 8, 5], total: 101 },
+        { day: 'Sun', slots: [2, 1, 2, 4, 7, 9, 9, 11, 16, 8, 6, 3], total: 78 }
       ]
     },
     time_usage: {
       sub_title: 'All 8 machines · selected week',
       formula: 'Utilization = active time ÷ available machine time',
-      formula_sub: 'Available: 8 machines × 14 hours × 7 days = 784 hours',
+      formula_sub: 'Available: 8 machines × 24 hours × 7 days = 1,344 hours',
       utilization_pct: 42.5,
       active_time: '333h 20m',
-      idle_time: '450h 40m'
+      idle_time: '1,010h 40m'
     },
     machine_view: {
       sub_title: 'Usage by unit · selected week',
@@ -165,6 +182,8 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
       if (period === 'custom') {
         if (customStart) params.append('start_date', customStart);
         if (customEnd) params.append('end_date', customEnd);
+      } else if (period === 'day' && customStart) {
+        params.append('start_date', customStart);
       }
       if (machineFilter !== 'all') params.append('machine', machineFilter);
       if (customerFilter !== 'all') params.append('customer', customerFilter);
@@ -188,8 +207,8 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
     fetchRealtimeAnalytics();
   }, [period, customStart, customEnd, machineFilter, customerFilter]);
 
-  // Active data is the real database data when available and dataSource === 'realtime'
-  const activeData = (dataSource === 'realtime' && realtimeData) ? realtimeData : SAMPLE_DATA;
+  // Active data is the real database data when available
+  const activeData = realtimeData || SAMPLE_DATA;
 
   // Heatmap dynamic color interpolator
   const allHeatVals = activeData.heatmap?.rows ? activeData.heatmap.rows.flatMap((r) => r.slots) : [];
@@ -219,25 +238,9 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
           </p>
         </div>
         <div className="activity-hero-right">
-          <div className="data-source-segmented-control">
-            <button
-              type="button"
-              className={`source-segment-btn ${dataSource === 'realtime' ? 'active' : ''}`}
-              onClick={() => setDataSource('realtime')}
-              title="Compute analytics directly from live SQLite LaundrySession database"
-            >
-              <span className="live-status-dot"></span>
-              <span>Live Database</span>
-            </button>
-            <button
-              type="button"
-              className={`source-segment-btn ${dataSource === 'sample' ? 'active' : ''}`}
-              onClick={() => setDataSource('sample')}
-              title="Show PDF reference benchmark sample data"
-            >
-              <Sparkles size={12} />
-              <span>Sample Benchmark</span>
-            </button>
+          <div className="live-db-badge" title="Live analytics computed directly from your SQLite database">
+            <span className="live-status-dot"></span>
+            <span>Live Database</span>
           </div>
         </div>
       </div>
@@ -279,7 +282,7 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
             </button>
           </div>
 
-          {/* Date range display or Custom date picker */}
+          {/* Date range display or Custom / Day date picker */}
           {period === 'custom' ? (
             <div className="custom-date-inputs">
               <input
@@ -294,6 +297,18 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
                 className="activity-date-input"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
+              />
+            </div>
+          ) : period === 'day' ? (
+            <div className="custom-date-inputs">
+              <input
+                type="date"
+                className="activity-date-input"
+                value={customStart}
+                onChange={(e) => {
+                  setCustomStart(e.target.value);
+                  setCustomEnd(e.target.value);
+                }}
               />
             </div>
           ) : (
@@ -356,7 +371,12 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
         <div className="activity-kpi-card">
           <div className="kpi-card-header">
             <span className="kpi-bullet bullet-blue">•</span>
-            <span className="kpi-title">Customers</span>
+            <span className="kpi-title">Unique customers</span>
+            {activeData.top_metrics.total_visits !== undefined && (
+              <span className="kpi-badge-sub" title="Total store visits logged across all customers">
+                {activeData.top_metrics.total_visits} {activeData.top_metrics.total_visits === 1 ? 'visit' : 'visits'}
+              </span>
+            )}
           </div>
           <div className="kpi-number">{activeData.top_metrics.customers}</div>
           <div className="kpi-subtext">{activeData.top_metrics.customers_sub}</div>
@@ -404,14 +424,23 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
 
         <div className="scale-comparison-grid">
           {/* Scale 1: DAY */}
-          <div className={`scale-card ${period === 'day' ? 'highlighted' : ''}`}>
+          <div className={`scale-card ${period === 'day' || (period === 'custom' && customStart === customEnd) ? 'highlighted' : ''}`}>
             <div className="scale-card-top">
               <span className="scale-tag">DAY</span>
               <span className="scale-date">{activeData.scales?.day?.label}</span>
             </div>
             <div className="scale-metrics-row">
               <div className="scale-big-val">
-                {activeData.scales?.day?.customers} <span className="scale-val-sub">customers</span>
+                {activeData.scales?.day?.customers}{' '}
+                <span className="scale-val-sub">
+                  {activeData.scales?.day?.customers === 1 ? 'customer' : 'customers'}
+                </span>
+                {activeData.scales?.day?.total_visits !== undefined && (
+                  <span className="scale-val-unique" title="Total store visits on this day">
+                    ({activeData.scales?.day?.total_visits}{' '}
+                    {activeData.scales?.day?.total_visits === 1 ? 'visit' : 'visits'})
+                  </span>
+                )}
               </div>
               <div className="scale-sub-metrics">
                 <span className="scale-metric-cycles">{activeData.scales?.day?.cycles} cycles</span>
@@ -446,7 +475,16 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
             </div>
             <div className="scale-metrics-row">
               <div className="scale-big-val">
-                {activeData.scales?.week?.customers} <span className="scale-val-sub">customers</span>
+                {activeData.scales?.week?.customers}{' '}
+                <span className="scale-val-sub">
+                  {activeData.scales?.week?.customers === 1 ? 'customer' : 'customers'}
+                </span>
+                {activeData.scales?.week?.total_visits !== undefined && (
+                  <span className="scale-val-unique" title="Total store visits this week">
+                    ({activeData.scales?.week?.total_visits}{' '}
+                    {activeData.scales?.week?.total_visits === 1 ? 'visit' : 'visits'})
+                  </span>
+                )}
               </div>
               <div className="scale-sub-metrics">
                 <span className="scale-metric-cycles">{activeData.scales?.week?.cycles} cycles</span>
@@ -473,15 +511,20 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
             </div>
           </div>
 
-          {/* Scale 3: MONTH */}
+          {/* Scale 3: PAST 30 DAYS */}
           <div className={`scale-card ${period === 'month' ? 'highlighted' : ''}`}>
             <div className="scale-card-top">
-              <span className="scale-tag">MONTH</span>
+              <span className="scale-tag">{activeData.scales?.month?.tag || 'PAST 30 DAYS'}</span>
               <span className="scale-date">{activeData.scales?.month?.label}</span>
             </div>
             <div className="scale-metrics-row">
               <div className="scale-big-val">
                 {activeData.scales?.month?.customers} <span className="scale-val-sub">customers</span>
+                {activeData.scales?.month?.total_visits !== undefined && (
+                  <span className="scale-val-unique" title="Total store visits in past 30 days">
+                    ({activeData.scales?.month?.total_visits} visits)
+                  </span>
+                )}
               </div>
               <div className="scale-sub-metrics">
                 <span className="scale-metric-cycles">{activeData.scales?.month?.cycles} cycles</span>
@@ -518,7 +561,9 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
             <div>
               <h3 className="panel-card-title">When customers come in</h3>
               <p className="panel-card-subtitle">
-                Customer arrivals · one customer counted at first visit each day
+                {activeData.heatmap?.total_visits
+                  ? `${activeData.heatmap.total_visits} store visits from ${activeData.top_metrics.customers} unique customers · first arrival each day`
+                  : 'Customer arrivals · one customer counted at first visit each day'}
               </p>
             </div>
             <span className="panel-date-badge">{activeData.heatmap?.period_label}</span>
@@ -533,7 +578,7 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
                   {activeData.heatmap?.time_slots?.map((slot, i) => (
                     <th key={i}>{slot}</th>
                   ))}
-                  <th className="heatmap-total-th">Total</th>
+                  <th className="heatmap-total-th">Visits</th>
                 </tr>
               </thead>
               <tbody>
@@ -839,7 +884,7 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
       {/* 8. Footer */}
       <footer className="activity-page-footer">
         <p>
-          Usage only. No financial or collection data. Customer = unique visitor in a period · Cycle = one completed machine run
+          Usage only. No financial or collection data. Customer = unique patron in a period · Session = machine run session · Cycle = one completed machine run
         </p>
       </footer>
     </div>
