@@ -1407,69 +1407,6 @@
   overflow-x: auto;
 }
 
-/* Scrollable Container for Customer Sessions (Shows ~10 records, then scrollable) */
-.sessions-table-scroll-container {
-  max-height: 615px;
-  overflow-y: auto;
-  overflow-x: auto;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background-color: #ffffff;
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f8fafc;
-}
-
-.sessions-table-scroll-container::-webkit-scrollbar {
-  width: 7px;
-  height: 7px;
-}
-
-.sessions-table-scroll-container::-webkit-scrollbar-track {
-  background: #f8fafc;
-  border-radius: 8px;
-}
-
-.sessions-table-scroll-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 8px;
-}
-
-.sessions-table-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-.sessions-table-scroll-container .sessions-table {
-  border-collapse: separate;
-  border-spacing: 0;
-  width: 100%;
-}
-
-.sessions-table-scroll-container .sessions-table thead th {
-  position: sticky;
-  top: 0;
-  background-color: #f8fafc;
-  z-index: 5;
-  border-bottom: 1px solid #e2e8f0;
-  box-shadow: inset 0 -1px 0 #e2e8f0;
-}
-
-.sessions-table-scroll-container .sessions-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.scroll-records-badge {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #2558ea;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 3px 10px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .sessions-table {
   width: 100%;
   border-collapse: collapse;
@@ -1486,7 +1423,7 @@
 }
 
 .sessions-table td {
-  padding: 13px 16px;
+  padding: 16px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 14px;
 }
