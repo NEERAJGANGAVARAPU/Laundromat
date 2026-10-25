@@ -97,6 +97,26 @@ export default function OwnerDashboard() {
   const [storedPasswordTime, setStoredPasswordTime] = useState(
     localStorage.getItem('spin_owner_password_updated_at')
   );
+  const [authStatus, setAuthStatus] = useState({
+    username: 'admin',
+    is_default_password: true,
+    last_login: null
+  });
+
+  const fetchAuthStatus = async () => {
+    try {
+      let res = await fetch('/api/auth/status/').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/auth/status/`);
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        setAuthStatus(data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch auth status:', e);
+    }
+  };
 
   // Real-time ticker: updates every second so remaining countdown ticks live
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -489,6 +509,7 @@ export default function OwnerDashboard() {
   useEffect(() => {
     fetchBackendMachines();
     fetchBackendSessions();
+    fetchAuthStatus();
     const interval = setInterval(() => {
       fetchBackendMachines();
       fetchBackendSessions();
@@ -629,20 +650,10 @@ export default function OwnerDashboard() {
     window.print();
   };
 
-  // Change Owner Password Handler
-  const handleChangePassword = (e) => {
+  // Change Owner Password Handler (Connected to Django backend /api/auth/change-password/)
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     setSettingsStatus(null);
-
-    const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
-
-    if (currentPasswordInput !== storedPass) {
-      setSettingsStatus({
-        type: 'error',
-        message: 'Current password is incorrect. Please verify your existing password.'
-      });
-      return;
-    }
 
     if (newPasswordInput.length < 6) {
       setSettingsStatus({
@@ -660,49 +671,104 @@ export default function OwnerDashboard() {
       return;
     }
 
-    if (newPasswordInput === storedPass) {
+    try {
+      let res = await fetch('/api/auth/change-password/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: authStatus.username || 'admin',
+          current_password: currentPasswordInput,
+          new_password: newPasswordInput
+        })
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/auth/change-password/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: authStatus.username || 'admin',
+            current_password: currentPasswordInput,
+            new_password: newPasswordInput
+          })
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update password');
+      }
+
+      const nowIso = data.updated_at || new Date().toISOString();
+      localStorage.setItem('spin_owner_password_updated_at', nowIso);
+      setStoredPasswordTime(nowIso);
+
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+
+      setSettingsStatus({
+        type: 'success',
+        message: 'Password successfully changed and synced with backend database! Your new password is now active across all devices.'
+      });
+      fetchAuthStatus();
+    } catch (err) {
       setSettingsStatus({
         type: 'error',
-        message: 'New password cannot be the same as your current password.'
+        message: err.message
       });
-      return;
     }
-
-    // Save new password
-    const nowIso = new Date().toISOString();
-    localStorage.setItem('spin_owner_password', newPasswordInput);
-    localStorage.setItem('spin_owner_password_updated_at', nowIso);
-    setStoredPasswordTime(nowIso);
-
-    setCurrentPasswordInput('');
-    setNewPasswordInput('');
-    setConfirmPasswordInput('');
-
-    setSettingsStatus({
-      type: 'success',
-      message: 'Password successfully changed! Your new password is now active.'
-    });
   };
 
-  // Reset Owner Password to Default Handler
-  const handleResetPassword = () => {
+  // Reset Owner Password to Default Handler (Connected to Django backend /api/auth/reset-password/)
+  const handleResetPassword = async () => {
     const isConfirmed = window.confirm(
-      'Are you sure you want to reset your owner portal password to the system default (vikranth@123)?'
+      'Are you sure you want to reset your owner portal password in SQLite to the system default password?'
     );
     if (!isConfirmed) return;
 
-    localStorage.setItem('spin_owner_password', 'vikranth@123');
-    localStorage.removeItem('spin_owner_password_updated_at');
-    setStoredPasswordTime(null);
+    try {
+      let res = await fetch('/api/auth/reset-password/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: authStatus.username || 'admin'
+        })
+      }).catch(() => null);
 
-    setCurrentPasswordInput('');
-    setNewPasswordInput('');
-    setConfirmPasswordInput('');
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/auth/reset-password/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: authStatus.username || 'admin'
+          })
+        });
+      }
 
-    setSettingsStatus({
-      type: 'success',
-      message: 'Password has been reset to default: vikranth@123'
-    });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset password');
+      }
+
+      localStorage.removeItem('spin_owner_password_updated_at');
+      setStoredPasswordTime(null);
+
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+
+      setSettingsStatus({
+        type: 'success',
+        message: 'Password has been successfully reset to system default in SQLite database.'
+      });
+      fetchAuthStatus();
+    } catch (err) {
+      setSettingsStatus({
+        type: 'error',
+        message: err.message
+      });
+    }
   };
 
   // Metrics calculation
@@ -1143,12 +1209,12 @@ export default function OwnerDashboard() {
 
                   <div className="reset-card-body">
                     <div className="default-pass-box">
-                      <span className="default-pass-label">System Default Password:</span>
-                      <code className="default-pass-code">vikranth@123</code>
+                      <span className="default-pass-label">System Default Policy:</span>
+                      <code className="default-pass-code">Server Environment Seed</code>
                     </div>
 
                     <p className="reset-hint-text">
-                      Resetting will immediately restore the password to <strong>vikranth@123</strong>.
+                      Resetting will restore the password in SQLite database to the system default configured on your server.
                     </p>
 
                     <button
@@ -1178,11 +1244,7 @@ export default function OwnerDashboard() {
                   <div className="profile-credentials-list">
                     <div className="cred-row">
                       <span className="cred-label">Username</span>
-                      <span className="cred-value">admin</span>
-                    </div>
-                    <div className="cred-row">
-                      <span className="cred-label">Registered Email</span>
-                      <span className="cred-value">admin@spinzone.co</span>
+                      <span className="cred-value">{authStatus.username || 'admin'}</span>
                     </div>
                     <div className="cred-row">
                       <span className="cred-label">Account Role</span>
@@ -1191,12 +1253,12 @@ export default function OwnerDashboard() {
                     <div className="cred-row">
                       <span className="cred-label">Password Status</span>
                       <span className="cred-value">
-                        {storedPasswordTime ? (
+                        {!authStatus.is_default_password ? (
                           <span className="badge-custom-pass">
-                            Custom (Set {new Date(storedPasswordTime).toLocaleDateString()})
+                            Custom (Active)
                           </span>
                         ) : (
-                          <span className="badge-default-pass">Default (vikranth@123)</span>
+                          <span className="badge-default-pass">System Default</span>
                         )}
                       </span>
                     </div>

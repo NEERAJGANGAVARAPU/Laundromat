@@ -1,6 +1,7 @@
 import socket
 from datetime import timedelta
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.response import Response
@@ -502,6 +503,188 @@ def activity_analytics_view(request):
         customer_filter=customer_filter
     )
     return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def auth_login_view(request):
+    """
+    POST /api/auth/login/
+    Verifies owner username and password securely against SQLite auth_user.
+    Pure username + password authentication (no dummy email required).
+    """
+    import os
+    from django.contrib.auth.models import User
+    username = str(request.data.get('username', '')).strip().lower()
+    password = str(request.data.get('password', ''))
+
+    if not username or not password:
+        return Response(
+            {"error": "Both username and password are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = User.objects.filter(username__iexact=username).first()
+
+    # Fallback to superuser if logging in with generic role title
+    if not user and username in ['admin', 'owner']:
+        user = User.objects.filter(is_superuser=True).first()
+
+    if user and user.check_password(password):
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        default_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        is_default = user.check_password(default_pass)
+        return Response({
+            "success": True,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "role": "Store owner",
+                "is_default_password": is_default,
+                "login_time": user.last_login.isoformat()
+            }
+        }, status=status.HTTP_200_OK)
+
+    return Response(
+        {"error": "Invalid credentials. Please verify your username and password."},
+        status=status.HTTP_401_UNAUTHORIZED
+    )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def auth_change_password_view(request):
+    """
+    POST /api/auth/change-password/
+    Updates owner password in SQLite with secure PBKDF2 hashing.
+    """
+    import os
+    from django.contrib.auth.models import User
+    from .models import AuditLog
+
+    username = str(request.data.get('username', 'admin')).strip().lower()
+    current_password = str(request.data.get('current_password', ''))
+    new_password = str(request.data.get('new_password', ''))
+
+    if not current_password or not new_password:
+        return Response(
+            {"error": "Current password and new password are both required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = User.objects.filter(username__iexact=username).first()
+    if not user:
+        user = User.objects.filter(is_superuser=True).first()
+
+    if not user:
+        return Response({"error": "Admin account not found in database."}, status=status.HTTP_404_NOT_FOUND)
+
+    if not user.check_password(current_password):
+        return Response(
+            {"error": "Current password is incorrect. Please verify your existing password."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if len(new_password) < 6:
+        return Response(
+            {"error": "New password must be at least 6 characters long."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if user.check_password(new_password):
+        return Response(
+            {"error": "New password cannot be the same as your current password."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user.set_password(new_password)
+    user.save()
+
+    try:
+        AuditLog.objects.create(
+            user=user,
+            action="OWNER_PASSWORD_CHANGED",
+            target_entity=f"User:{user.username}",
+            details=f"Owner password changed securely in SQLite database at {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+    except Exception:
+        pass
+
+    return Response({
+        "success": True,
+        "message": "Password successfully updated! Your new password is now active.",
+        "updated_at": timezone.now().isoformat(),
+        "is_default_password": False
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def auth_reset_password_view(request):
+    """
+    POST /api/auth/reset-password/
+    Restores owner password back to system environment default.
+    """
+    import os
+    from django.contrib.auth.models import User
+    from .models import AuditLog
+
+    username = str(request.data.get('username', 'admin')).strip().lower()
+    user = User.objects.filter(username__iexact=username).first()
+    if not user:
+        user = User.objects.filter(is_superuser=True).first()
+
+    if not user:
+        return Response({"error": "Admin account not found in database."}, status=status.HTTP_404_NOT_FOUND)
+
+    default_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    user.set_password(default_pass)
+    user.save()
+
+    try:
+        AuditLog.objects.create(
+            user=user,
+            action="OWNER_PASSWORD_RESET",
+            target_entity=f"User:{user.username}",
+            details="Owner password reset back to system default"
+        )
+    except Exception:
+        pass
+
+    return Response({
+        "success": True,
+        "message": "Password has been successfully reset to system default.",
+        "is_default_password": True
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def auth_status_view(request):
+    """
+    GET /api/auth/status/
+    Returns current owner credentials status from SQLite without exposing sensitive details.
+    """
+    import os
+    from django.contrib.auth.models import User
+    admin_name = os.environ.get('ADMIN_USERNAME', 'admin').strip()
+    default_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+
+    user = User.objects.filter(username__iexact=admin_name).first() or User.objects.filter(is_superuser=True).first()
+    if not user:
+        return Response({
+            "username": admin_name,
+            "is_default_password": True,
+            "last_login": None
+        }, status=status.HTTP_200_OK)
+
+    is_default = user.check_password(default_pass)
+    return Response({
+        "username": user.username,
+        "is_default_password": is_default,
+        "last_login": user.last_login.isoformat() if user.last_login else None
+    }, status=status.HTTP_200_OK)
 
 
 

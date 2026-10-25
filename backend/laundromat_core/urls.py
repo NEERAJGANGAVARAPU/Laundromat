@@ -9,7 +9,11 @@ from .views import (
     reports_pdf_view,
     audit_logs_view,
     notifications_view,
-    activity_analytics_view
+    activity_analytics_view,
+    auth_login_view,
+    auth_change_password_view,
+    auth_reset_password_view,
+    auth_status_view
 )
 
 # 1. Create a REST Framework router
@@ -30,6 +34,10 @@ router.register(r'sessions', LaundrySessionViewSet, basename='session')
 # 3. Include the router's generated URLs
 urlpatterns = [
     path('network-ip/', network_ip_view, name='network_ip'),
+    path('auth/login/', auth_login_view, name='auth_login'),
+    path('auth/change-password/', auth_change_password_view, name='auth_change_password'),
+    path('auth/reset-password/', auth_reset_password_view, name='auth_reset_password'),
+    path('auth/status/', auth_status_view, name='auth_status'),
     path('reports/analytics/', reports_analytics_view, name='reports_analytics'),
     path('reports/csv/', reports_csv_view, name='reports_csv'),
     path('reports/pdf/', reports_pdf_view, name='reports_pdf'),

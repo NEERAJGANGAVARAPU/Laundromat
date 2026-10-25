@@ -23,3 +23,22 @@ class LaundromatCoreConfig(AppConfig):
         if (is_reloader_worker or is_direct_runserver) and not is_management_cmd:
             from .scheduler import start_background_scheduler
             start_background_scheduler(interval_seconds=15)
+            self.ensure_admin_user()
+
+    def ensure_admin_user(self):
+        """
+        Ensures the owner admin account exists in SQLite, seeded from environment variables.
+        """
+        try:
+            from django.contrib.auth.models import User
+            admin_user_name = os.environ.get('ADMIN_USERNAME', 'admin').strip()
+            admin_default_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            admin_user = User.objects.filter(username__iexact=admin_user_name).first()
+            if not admin_user:
+                User.objects.create_superuser(
+                    username=admin_user_name,
+                    email='',
+                    password=admin_default_pass
+                )
+        except Exception:
+            pass

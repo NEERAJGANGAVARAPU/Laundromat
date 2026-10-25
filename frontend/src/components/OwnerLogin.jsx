@@ -11,33 +11,49 @@ export default function OwnerLogin({ onLogin }) {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    setTimeout(() => {
-      const cleanUser = username.trim().toLowerCase();
-      // Accepts 'admin', 'vikranth', 'admin@spinzone.co', 'owner@spinzone.co'
-      const isValidUser = cleanUser === 'vikranth' || cleanUser === 'admin' || cleanUser === 'owner' || cleanUser.includes('spinzone') || cleanUser.startsWith('admin@');
-      const storedPass = localStorage.getItem('spin_owner_password') || 'vikranth@123';
-      const isValidPass = password === storedPass;
+    const cleanUser = username.trim().toLowerCase();
+    const host = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '127.0.0.1'
+      : window.location.hostname;
 
-      if (isValidUser && isValidPass) {
-        setIsLoading(false);
-        localStorage.setItem('spin_owner_auth', JSON.stringify({
-          username: cleanUser,
-          name: 'Store Admin',
-          role: 'Store owner',
-          loginTime: new Date().toISOString()
-        }));
-        if (onLogin) onLogin();
-        navigate('/owner/dashboard');
-      } else {
-        setIsLoading(false);
-        setError('Invalid owner credentials. Please verify your username and password.');
+    try {
+      let res = await fetch('/api/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUser, password })
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        res = await fetch(`http://${host}:8000/api/auth/login/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: cleanUser, password })
+        });
       }
-    }, 400);
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Invalid owner credentials. Please verify your username and password.');
+      }
+
+      setIsLoading(false);
+      localStorage.setItem('spin_owner_auth', JSON.stringify({
+        username: data.user.username,
+        name: 'Store Admin',
+        role: data.user.role || 'Store owner',
+        loginTime: data.user.login_time || new Date().toISOString()
+      }));
+      if (onLogin) onLogin();
+      navigate('/owner/dashboard');
+    } catch (err) {
+      setIsLoading(false);
+      setError(err.message || 'Unable to connect to authentication server. Please check backend.');
+    }
   };
 
   return (
@@ -185,8 +201,7 @@ export default function OwnerLogin({ onLogin }) {
                   href="#forgot"
                   onClick={(e) => {
                     e.preventDefault();
-                    const p = localStorage.getItem('spin_owner_password') || 'vikranth@123';
-                    alert(`Current Owner Password: ${p}\n\nYou can also change or reset it anytime in Dashboard > Access Settings.`);
+                    alert(`To recover owner access, sign in using your system administrator credentials configured in the server environment (.env), or reset it from the Owner Dashboard.`);
                   }}
                   className="forgot-pass-link"
                 >
