@@ -1587,28 +1587,46 @@ export default function OwnerDashboard() {
                           </span>
                         </td>
                         <td>
-                          {c.status === 'completed' ? (
-                            c.emailSent ? (
-                              <span className="notif-badge sent" title={`Email sent to ${c.realEmail}`}>
-                                <Mail size={12} /> Sent
-                              </span>
-                            ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
-                              <span className="notif-badge walkin" title="Walk-in (No email provided)">
-                                Walk-in
-                              </span>
-                            ) : (
-                              <span className="notif-badge pending" title="Email not dispatched for this historical session">
-                                <Mail size={12} /> Not Sent
-                              </span>
-                            )
-                          ) : c.status === 'active' ? (
-                            <span className="notif-badge active" title="Scheduled upon cycle finish">
-                              <Clock size={12} /> Scheduled
+                          {c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                            <span className="notif-badge walkin" title="Walk-in customer (No email provided)">
+                              Walk-in (Skipped)
                             </span>
-                          ) : (
+                          ) : c.status === 'cancelled' ? (
                             <span className="notif-badge cancelled" title="Session cancelled">
                               Cancelled
                             </span>
+                          ) : (
+                            <div className="dual-notif-wrap">
+                              {/* 1. 5-Min Pre-Alert */}
+                              {c.reminderEmailSent ? (
+                                <span className="notif-badge reminder-sent" title={`5-min reminder sent to ${c.realEmail}`}>
+                                  <Clock size={11} /> 5-Min: Sent
+                                </span>
+                              ) : c.status === 'active' ? (
+                                <span className="notif-badge reminder-pending" title="5-min reminder will send when ~5 minutes remain">
+                                  <Clock size={11} /> 5-Min: Pending
+                                </span>
+                              ) : (
+                                <span className="notif-badge skipped" title="5-min reminder was skipped (e.g. cycle <= 5 mins or manual completion)">
+                                  <Clock size={11} /> 5-Min: Skipped
+                                </span>
+                              )}
+
+                              {/* 2. Completion Email */}
+                              {c.emailSent ? (
+                                <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
+                                  <Mail size={11} /> Finish: Sent
+                                </span>
+                              ) : c.status === 'active' ? (
+                                <span className="notif-badge active" title="Completion email scheduled upon cycle finish">
+                                  <Mail size={11} /> Finish: Scheduled
+                                </span>
+                              ) : (
+                                <span className="notif-badge pending" title="Completion email not dispatched">
+                                  <Mail size={11} /> Finish: Not Sent
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
                         <td>
@@ -2083,38 +2101,46 @@ export default function OwnerDashboard() {
                             </span>
                           </td>
                           <td>
-                            {c.status === 'completed' ? (
-                              c.emailSent ? (
-                                <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
-                                  <Mail size={12} /> Sent
-                                </span>
-                              ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
-                                <span className="notif-badge walkin" title="Walk-in (No email provided)">
-                                  Walk-in
-                                </span>
-                              ) : (
-                                <span className="notif-badge pending" title="Email not dispatched for this historical session">
-                                  <Mail size={12} /> Not Sent
-                                </span>
-                              )
-                            ) : c.status === 'active' ? (
-                              c.reminderEmailSent ? (
-                                <span
-                                  className="notif-badge reminder-sent"
-                                  style={{ backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}
-                                  title={`5-minute pre-completion warning email delivered to ${c.realEmail}`}
-                                >
-                                  <Clock size={12} /> 5-Min Alert Sent
-                                </span>
-                              ) : (
-                                <span className="notif-badge active" title="5-min reminder and completion emails scheduled">
-                                  <Clock size={12} /> Scheduled
-                                </span>
-                              )
-                            ) : (
+                            {c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                              <span className="notif-badge walkin" title="Walk-in customer (No email provided)">
+                                Walk-in (Skipped)
+                              </span>
+                            ) : c.status === 'cancelled' ? (
                               <span className="notif-badge cancelled" title="Session cancelled">
                                 Cancelled
                               </span>
+                            ) : (
+                              <div className="dual-notif-wrap">
+                                {/* 1. 5-Min Pre-Alert */}
+                                {c.reminderEmailSent ? (
+                                  <span className="notif-badge reminder-sent" title={`5-min reminder sent to ${c.realEmail}`}>
+                                    <Clock size={11} /> 5-Min: Sent
+                                  </span>
+                                ) : c.status === 'active' ? (
+                                  <span className="notif-badge reminder-pending" title="5-min reminder will send when ~5 minutes remain">
+                                    <Clock size={11} /> 5-Min: Pending
+                                  </span>
+                                ) : (
+                                  <span className="notif-badge skipped" title="5-min reminder was skipped (e.g. cycle <= 5 mins or manual completion)">
+                                    <Clock size={11} /> 5-Min: Skipped
+                                  </span>
+                                )}
+
+                                {/* 2. Completion Email */}
+                                {c.emailSent ? (
+                                  <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
+                                    <Mail size={11} /> Finish: Sent
+                                  </span>
+                                ) : c.status === 'active' ? (
+                                  <span className="notif-badge active" title="Completion email scheduled upon cycle finish">
+                                    <Mail size={11} /> Finish: Scheduled
+                                  </span>
+                                ) : (
+                                  <span className="notif-badge pending" title="Completion email not dispatched">
+                                    <Mail size={11} /> Finish: Not Sent
+                                  </span>
+                                )}
+                              </div>
                             )}
                           </td>
                           <td>

@@ -2887,6 +2887,32 @@
   border: 1px solid #cbd5e1;
 }
 
+.dual-notif-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.notif-badge.reminder-sent {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.notif-badge.reminder-pending {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.notif-badge.skipped {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  opacity: 0.85;
+}
+
 /* ============================================================
    REPORTS DATE RANGE CONTROLS & STYLING
    ============================================================ */
