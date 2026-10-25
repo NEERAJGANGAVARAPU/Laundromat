@@ -6,7 +6,7 @@ from django.utils import timezone
 logger = logging.getLogger(__name__)
 
 
-def send_cycle_completed_email(session):
+def send_cycle_completed_email(session, already_claimed=False):
     """
     Sends a beautifully formatted completion notification email to the customer
     when their wash or dry cycle completes.
@@ -16,17 +16,24 @@ def send_cycle_completed_email(session):
     - Dryer  (D-1, D-2, etc.): advises collecting warm, dry clothes
     
     Protections:
-    - Idempotent: checks session.email_sent to never send duplicate emails.
+    - Idempotent: checks session.email_sent atomically to never send duplicate emails.
     - Filters out internal placeholder emails (e.g. walkin-*@laundromat.local).
     - Wrapped in try/except so email delivery failures never break API transactions.
     """
     if not session:
         return False
 
-    # 1. Guard against duplicate sending
-    if session.email_sent:
-        logger.info(f"Email already sent for session {session.id}, skipping.")
-        return False
+    # 1. Guard against duplicate sending (Atomic CAS claim)
+    if not already_claimed:
+        from .models import LaundrySession
+        rows_claimed = LaundrySession.objects.filter(
+            id=session.id,
+            email_sent=False
+        ).update(email_sent=True)
+        if rows_claimed == 0:
+            logger.info(f"Completion email already sent or claimed for session {session.id}, skipping.")
+            return False
+    session.email_sent = True
 
     # 2. Check if email is valid and not an internal walk-in placeholder
     customer_email = (session.customer_email or '').strip()
@@ -285,7 +292,7 @@ A little less waiting. A little more you.
                 action='NOTIFICATION_SENT',
                 record_type='LaundrySession',
                 record_id=str(session.id),
-                change_details=f"Email notification sent to {customer_email} for machine {machine_code}."
+                change_details={"message": f"Email notification sent to {customer_email} for machine {machine_code}."}
             )
         except Exception as notif_err:
             logger.warning(f"Could not update Notification/Audit table: {notif_err}")
@@ -304,23 +311,30 @@ A little less waiting. A little more you.
         return False
 
 
-def send_cycle_reminder_email(session):
+def send_cycle_reminder_email(session, already_claimed=False):
     """
     Sends a 5-minute pre-completion warning notification email to the customer
     so they have plenty of time to head back to the machine before it completes.
 
     Protections:
-    - Idempotent: checks session.reminder_email_sent to never send duplicate reminder emails.
+    - Idempotent: checks session.reminder_email_sent atomically to never send duplicate reminder emails.
     - Filters out internal placeholder emails (e.g. walkin-*@laundromat.local).
     - Wrapped in try/except so email delivery failures never break background tasks.
     """
     if not session:
         return False
 
-    # 1. Guard against duplicate sending
-    if session.reminder_email_sent:
-        logger.info(f"5-min reminder already sent for session {session.id}, skipping.")
-        return False
+    # 1. Guard against duplicate sending (Atomic CAS claim)
+    if not already_claimed:
+        from .models import LaundrySession
+        rows_claimed = LaundrySession.objects.filter(
+            id=session.id,
+            reminder_email_sent=False
+        ).update(reminder_email_sent=True)
+        if rows_claimed == 0:
+            logger.info(f"5-min reminder already sent or claimed for session {session.id}, skipping.")
+            return False
+    session.reminder_email_sent = True
 
     # 2. Check if email is valid and not an internal walk-in placeholder
     customer_email = (session.customer_email or '').strip()
@@ -571,7 +585,7 @@ Powered by SanielSoft
                 action='NOTIFICATION_SENT',
                 record_type='LaundrySession',
                 record_id=str(session.id),
-                change_details=f"5-minute reminder email sent to {customer_email} for machine {machine_code}."
+                change_details={"message": f"5-minute reminder email sent to {customer_email} for machine {machine_code}."}
             )
         except Exception:
             pass

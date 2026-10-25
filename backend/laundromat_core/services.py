@@ -16,25 +16,32 @@ def sync_expired_sessions():
     """
     now = timezone.now()
 
-    # 1. Complete expired active sessions
+    # 1. Complete expired active sessions (Atomic CAS to prevent concurrent duplicates)
     expired_sessions = LaundrySession.objects.filter(
         status='active',
         expected_end_at__lte=now
     ).select_related('machine')
 
     for session in expired_sessions:
-        session.status = 'completed'
-        if not session.completed_at:
+        # Atomic claim: Only the winning thread updates status from 'active' to 'completed'
+        rows_claimed = LaundrySession.objects.filter(
+            id=session.id,
+            status='active'
+        ).update(
+            status='completed',
+            completed_at=session.expected_end_at
+        )
+
+        if rows_claimed == 1:
+            session.status = 'completed'
             session.completed_at = session.expected_end_at
-        session.save(update_fields=['status', 'completed_at'])
+            # Notify customer that wash/dry is complete
+            try:
+                send_cycle_completed_email(session)
+            except Exception:
+                pass
 
-        # Notify customer that wash/dry is complete
-        try:
-            send_cycle_completed_email(session)
-        except Exception:
-            pass
-
-    # 2. Send 5-minute pre-completion warning reminder to active cycles
+    # 2. Send 5-minute pre-completion warning reminder to active cycles (Atomic CAS)
     reminder_threshold = now + timedelta(minutes=5)
     sessions_needing_reminder = LaundrySession.objects.filter(
         status='active',
@@ -45,10 +52,20 @@ def sync_expired_sessions():
     ).select_related('machine')
 
     for session in sessions_needing_reminder:
-        try:
-            send_cycle_reminder_email(session)
-        except Exception:
-            pass
+        # Atomic claim: Only the winning thread/request updates reminder_email_sent from False to True
+        # If another concurrent request or thread tries simultaneously, rows_claimed is 0 and it skips!
+        rows_claimed = LaundrySession.objects.filter(
+            id=session.id,
+            reminder_email_sent=False,
+            status='active'
+        ).update(reminder_email_sent=True)
+
+        if rows_claimed == 1:
+            try:
+                session.reminder_email_sent = True
+                send_cycle_reminder_email(session, already_claimed=True)
+            except Exception:
+                pass
 
     # 3. Heal any machines marked 'in_use' with no active session
     in_use_machines = Machine.objects.filter(status='in_use')
