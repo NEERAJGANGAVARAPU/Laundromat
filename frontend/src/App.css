@@ -7,7 +7,8 @@
   flex-direction: column;
   align-items: center;
   background-color: #faefde;
-  padding: 0 12px 40px 12px;
+  padding: 18px 12px 40px 12px;
+  padding-top: max(18px, env(safe-area-inset-top, 18px));
 }
 
 /* Simulated browser top bar */
@@ -45,6 +46,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: 4px;
   margin-bottom: 20px;
 }
 
