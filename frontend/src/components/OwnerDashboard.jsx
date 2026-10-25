@@ -847,7 +847,7 @@ export default function OwnerDashboard() {
               </svg>
             </div>
             <div className="brand-text-col">
-              <span className="sidebar-brand-title">Spin &amp; Stay</span>
+              <span className="sidebar-brand-title">Spinzone</span>
               <span className="sidebar-brand-sub">OWNER PORTAL</span>
             </div>
           </div>
@@ -951,9 +951,9 @@ export default function OwnerDashboard() {
           </div>
 
           <div className="owner-profile-row">
-            <div className="owner-avatar">VK</div>
+            <div className="owner-avatar">SZ</div>
             <div className="owner-profile-info">
-              <span className="owner-name">Vikranth</span>
+              <span className="owner-name">Store Admin</span>
               <span className="owner-role">Store owner</span>
             </div>
             <button className="signout-btn" onClick={handleSignOut} title="Sign out">
@@ -995,9 +995,6 @@ export default function OwnerDashboard() {
                 year: 'numeric'
               })}
             </span>
-            <Link to="/" className="switch-customer-btn">
-              <ExternalLink size={14} /> Customer view
-            </Link>
           </div>
         </header>
 
@@ -1181,11 +1178,11 @@ export default function OwnerDashboard() {
                   <div className="profile-credentials-list">
                     <div className="cred-row">
                       <span className="cred-label">Username</span>
-                      <span className="cred-value">vikranth</span>
+                      <span className="cred-value">admin</span>
                     </div>
                     <div className="cred-row">
                       <span className="cred-label">Registered Email</span>
-                      <span className="cred-value">vikranth@spinandstay.co</span>
+                      <span className="cred-value">admin@spinzone.co</span>
                     </div>
                     <div className="cred-row">
                       <span className="cred-label">Account Role</span>
@@ -1655,7 +1652,7 @@ export default function OwnerDashboard() {
 
                   <a
                     href={qrDataUrl}
-                    download={`spin-and-stay-${selectedMachineObj?.code}.png`}
+                    download={`spinzone-${selectedMachineObj?.code}.png`}
                     className="qr-action-btn secondary-qr-btn"
                   >
                     <Download size={16} />
@@ -2089,11 +2086,17 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Global Dashboard Disclaimer */}
+        {/* Global Dashboard Disclaimer & Powered by SanielSoft */}
         <footer className="dash-footer">
-          <p>
-            Spin &amp; Stay Owner Portal · All rights reserved · Logged in as <strong>Vikranth</strong>
-          </p>
+          <div className="dash-footer-content">
+            <span className="dash-footer-copy">
+              Spinzone Owner Portal · All rights reserved
+            </span>
+            <div className="dash-footer-powered">
+              <span className="powered-by-text">Powered by:</span>
+              <img src="/sanielsoft_full_logo.png" alt="SanielSoft" className="sanielsoft-logo-img" />
+            </div>
+          </div>
         </footer>
       </main>
 
