@@ -302,3 +302,281 @@ A little less waiting. A little more you.
         except Exception:
             pass
         return False
+
+
+def send_cycle_reminder_email(session):
+    """
+    Sends a 5-minute pre-completion warning notification email to the customer
+    so they have plenty of time to head back to the machine before it completes.
+
+    Protections:
+    - Idempotent: checks session.reminder_email_sent to never send duplicate reminder emails.
+    - Filters out internal placeholder emails (e.g. walkin-*@laundromat.local).
+    - Wrapped in try/except so email delivery failures never break background tasks.
+    """
+    if not session:
+        return False
+
+    # 1. Guard against duplicate sending
+    if session.reminder_email_sent:
+        logger.info(f"5-min reminder already sent for session {session.id}, skipping.")
+        return False
+
+    # 2. Check if email is valid and not an internal walk-in placeholder
+    customer_email = (session.customer_email or '').strip()
+    if not customer_email or customer_email.endswith('@laundromat.local') or '@' not in customer_email:
+        logger.info(f"Skipping 5-min reminder for session {session.id}: non-deliverable email '{customer_email}'.")
+        return False
+
+    # 3. Determine machine type and customize messaging
+    machine_code = session.machine_code or (session.machine.machine_code if session.machine else 'Machine')
+    m_code_upper = machine_code.upper()
+
+    is_dryer = False
+    if session.machine and session.machine.machine_type == 'dryer':
+        is_dryer = True
+    elif m_code_upper.startswith('D'):
+        is_dryer = True
+
+    customer_name = session.customer_name.strip() if session.customer_name else 'Alex'
+    duration = session.duration_minutes or 40
+
+    if is_dryer:
+        machine_label = f"Dryer {machine_code}"
+        subject = f"⏰ ~5 mins left on Dryer {machine_code}! — Spinzone"
+        headline = "Almost Dry. 5 Minutes Left."
+        subheadline = f"{customer_name}, your drying cycle is in its final 5 minutes!"
+        action_text = f"Your clothes in <strong>Dryer {machine_code}</strong> will be done in approximately 5 minutes. Time to head over with your laundry basket so you can collect them warm and wrinkle-free!"
+        service_badge = "⏰ 5 MINUTES REMAINING"
+        badge_color = "#EA580C"
+        next_step_tip = f"🧺 Grab your basket and head back to Dryer {machine_code} to collect your fresh, warm laundry right on time."
+    else:
+        machine_label = f"Washer {machine_code}"
+        subject = f"⏰ ~5 mins left on Washer {machine_code}! — Spinzone"
+        headline = "Almost Done. 5 Minutes Left."
+        subheadline = f"{customer_name}, your washing cycle is in its final 5 minutes!"
+        action_text = f"Your clothes in <strong>Washer {machine_code}</strong> will be ready in approximately 5 minutes. Please head back to collect your clean clothes promptly or transfer them to a dryer."
+        service_badge = "⏰ 5 MINUTES REMAINING"
+        badge_color = "#2563EB"
+        next_step_tip = f"🧺 Head back to Washer {machine_code}. You can also check our live floor status if you'd like to transfer straight to an empty dryer!"
+
+    # 4. Plain text fallback version
+    text_message = f"""
+Spinzone Laundromat — 5-Minute Heads-Up
+---------------------------------------
+Hello {customer_name},
+
+Your {machine_label} cycle has approximately 5 minutes remaining!
+
+Machine: {machine_label}
+Cycle Duration: {duration} mins
+Status: Almost Done (~5 mins left)
+
+Tip: {next_step_tip}
+
+Thank you for choosing Spinzone Laundromat!
+Powered by SanielSoft
+""".strip()
+
+    # 5. HTML version matching Spinzone design
+    html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{subject}</title>
+  <style>
+    body {{
+      margin: 0;
+      padding: 0;
+      background-color: #F8FAFC;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0F172A;
+    }}
+    .email-container {{
+      max-width: 580px;
+      margin: 24px auto;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 14px rgba(11, 26, 68, 0.05);
+    }}
+    .header {{
+      background: linear-gradient(135deg, #0B1A44 0%, #172554 100%);
+      color: #FFFFFF;
+      padding: 32px 28px 26px 28px;
+      text-align: center;
+    }}
+    .brand-pill {{
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #93C5FD;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }}
+    .header h1 {{
+      margin: 0 0 6px 0;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }}
+    .header p {{
+      margin: 0;
+      font-size: 14px;
+      color: #CBD5E1;
+    }}
+    .content {{
+      padding: 30px 28px;
+    }}
+    .status-badge-wrap {{
+      text-align: center;
+      margin-bottom: 22px;
+    }}
+    .status-badge {{
+      display: inline-block;
+      background-color: #FEF3C7;
+      color: #B45309;
+      border: 1px solid #FCD34D;
+      padding: 7px 18px;
+      border-radius: 20px;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+    }}
+    .action-callout {{
+      background: #F8FAFC;
+      border-left: 4px solid {badge_color};
+      padding: 16px 18px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      line-height: 1.55;
+      color: #334155;
+    }}
+    .details-table {{
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 13.5px;
+    }}
+    .details-table td {{
+      padding: 10px 12px;
+      border-bottom: 1px solid #F1F5F9;
+    }}
+    .details-label {{
+      color: #64748B;
+      font-weight: 600;
+      width: 40%;
+    }}
+    .details-value {{
+      color: #0F172A;
+      font-weight: 700;
+      text-align: right;
+    }}
+    .tip-box {{
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      color: #166534;
+      padding: 14px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }}
+    .footer {{
+      background: #F8FAFC;
+      border-top: 1px solid #E2E8F0;
+      padding: 22px 28px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748B;
+    }}
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="brand-pill">Spinzone Laundromat</div>
+      <h1>{headline}</h1>
+      <p>{subheadline}</p>
+    </div>
+
+    <div class="content">
+      <div class="status-badge-wrap">
+        <span class="status-badge">{service_badge}</span>
+      </div>
+
+      <div class="action-callout">
+        {action_text}
+      </div>
+
+      <table class="details-table">
+        <tr>
+          <td class="details-label">Machine Assigned</td>
+          <td class="details-value">{machine_label}</td>
+        </tr>
+        <tr>
+          <td class="details-label">Total Duration</td>
+          <td class="details-value">{duration} minutes</td>
+        </tr>
+        <tr>
+          <td class="details-label">Status</td>
+          <td class="details-value" style="color: #D97706;">Final 5 Minutes</td>
+        </tr>
+      </table>
+
+      <div class="tip-box">
+        <strong>💡 Next Step:</strong> {next_step_tip}
+      </div>
+    </div>
+
+    <div class="footer">
+      <p style="margin: 0 0 6px 0;"><strong>Spinzone Laundromat</strong></p>
+      <p style="margin: 0 0 8px 0;">A little less waiting. A little more you.</p>
+      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Powered by <strong>SanielSoft</strong></p>
+    </div>
+  </div>
+</body>
+</html>
+""".strip()
+
+    # 6. Send email via Django's mail system
+    try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Spinzone <noreply@spinzone.local>')
+        send_mail(
+            subject=subject,
+            message=text_message,
+            from_email=from_email,
+            recipient_list=[customer_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"✅ 5-min reminder email successfully sent to {customer_email} for machine {machine_code}.")
+
+        # Mark reminder as sent in database to guarantee no duplicates
+        session.reminder_email_sent = True
+        session.save(update_fields=['reminder_email_sent'])
+
+        try:
+            from .models import AuditLog
+            AuditLog.objects.create(
+                action='NOTIFICATION_SENT',
+                record_type='LaundrySession',
+                record_id=str(session.id),
+                change_details=f"5-minute reminder email sent to {customer_email} for machine {machine_code}."
+            )
+        except Exception:
+            pass
+
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to send 5-min reminder email for session {session.id}: {e}", exc_info=True)
+        return False

@@ -161,14 +161,14 @@ export default function OwnerLogin({ onLogin }) {
           <form onSubmit={handleSubmit} className="owner-form">
             {/* Username / Email field */}
             <div className="form-field-group">
-              <label className="field-label">Username or Email</label>
+              <label className="field-label">Username</label>
               <div className="owner-input-wrapper">
                 <Mail size={18} className="field-icon" />
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin or email"
+                  placeholder="Enter username"
                   required
                 />
               </div>

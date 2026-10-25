@@ -142,9 +142,10 @@ class LaundrySessionSerializer(serializers.ModelSerializer):
             'seconds_remaining',
             'total_seconds',
             'email_sent',
+            'reminder_email_sent',
             'created_at',
         ]
-        read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'email_sent', 'created_at']
+        read_only_fields = ['id', 'started_at', 'expected_end_at', 'completed_at', 'status', 'email_sent', 'reminder_email_sent', 'created_at']
 
 
 class AuditLogSerializer(serializers.ModelSerializer):

@@ -73,6 +73,7 @@ class LaundrySession(models.Model):
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     email_sent = models.BooleanField(default=False, help_text="Tracks whether cycle completion email was sent")
+    reminder_email_sent = models.BooleanField(default=False, help_text="Tracks whether 5-minute pre-completion reminder email was sent")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_expired(self):

@@ -484,6 +484,7 @@ export default function OwnerDashboard() {
             timeRemaining: s.status === 'active' ? 'Active in progress' : s.status,
             status: s.status,
             emailSent: !!s.email_sent,
+            reminderEmailSent: !!s.reminder_email_sent,
             revealed: false
           };
         });
@@ -1208,13 +1209,8 @@ export default function OwnerDashboard() {
                   </div>
 
                   <div className="reset-card-body">
-                    <div className="default-pass-box">
-                      <span className="default-pass-label">System Default Policy:</span>
-                      <code className="default-pass-code">Server Environment Seed</code>
-                    </div>
-
                     <p className="reset-hint-text">
-                      Resetting will restore the password in SQLite database to the system default configured on your server.
+                      Resetting will restore the owner portal password in the database to the system default configured on your server.
                     </p>
 
                     <button
@@ -2089,7 +2085,7 @@ export default function OwnerDashboard() {
                           <td>
                             {c.status === 'completed' ? (
                               c.emailSent ? (
-                                <span className="notif-badge sent" title={`Email sent to ${c.realEmail}`}>
+                                <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
                                   <Mail size={12} /> Sent
                                 </span>
                               ) : c.realEmail && c.realEmail.includes('@laundromat.local') ? (
@@ -2102,9 +2098,19 @@ export default function OwnerDashboard() {
                                 </span>
                               )
                             ) : c.status === 'active' ? (
-                              <span className="notif-badge active" title="Scheduled upon cycle finish">
-                                <Clock size={12} /> Scheduled
-                              </span>
+                              c.reminderEmailSent ? (
+                                <span
+                                  className="notif-badge reminder-sent"
+                                  style={{ backgroundColor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D' }}
+                                  title={`5-minute pre-completion warning email delivered to ${c.realEmail}`}
+                                >
+                                  <Clock size={12} /> 5-Min Alert Sent
+                                </span>
+                              ) : (
+                                <span className="notif-badge active" title="5-min reminder and completion emails scheduled">
+                                  <Clock size={12} /> Scheduled
+                                </span>
+                              )
                             ) : (
                               <span className="notif-badge cancelled" title="Session cancelled">
                                 Cancelled
