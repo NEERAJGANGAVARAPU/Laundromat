@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   RotateCcw,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import '../App.css';
 
@@ -74,6 +75,11 @@ export default function CustomerView() {
   const [bookingError, setBookingError] = useState(null);
   const [activeSessionId, setActiveSessionId] = useState(() => localStorage.getItem('active_session_id') || null);
 
+  // Session ownership & occupancy states (prevents other customer from cancelling or hijacking active wash)
+  const [isOccupiedByOther, setIsOccupiedByOther] = useState(false);
+  const [occupiedMachine, setOccupiedMachine] = useState(null);
+  const [isCancelledByOwner, setIsCancelledByOwner] = useState(false);
+
   // Dynamic API host (works on laptop 127.0.0.1 and mobile Wi-Fi)
   const apiHost = window.location.hostname || '127.0.0.1';
 
@@ -81,7 +87,7 @@ export default function CustomerView() {
   const apiFetch = async (endpoint, options = {}) => {
     try {
       const res = await fetch(endpoint, options);
-      if (res && res.ok) return res;
+      if (res) return res;
     } catch (e) {}
     return fetch(`http://${apiHost}:8000${endpoint}`, options);
   };
@@ -114,58 +120,91 @@ export default function CustomerView() {
             setMachineCode(matched.machine_code);
             setMachineType(matched.machine_type);
 
-            if (matched.active_session_id) {
-              setActiveSessionId(matched.active_session_id);
-              localStorage.setItem('active_session_id', matched.active_session_id);
+            // SECURITY & OWNERSHIP CHECK:
+            // Check if THIS browser/phone owns the session running on matched machine
+            const savedSessId = localStorage.getItem('active_session_id');
+            const savedSessCode = localStorage.getItem('active_session_code');
+            const savedSessToken = localStorage.getItem('active_session_token');
+
+            const isSessionOwner = Boolean(
+              matched.status === 'in_use' &&
+              matched.active_session_id &&
+              savedSessId &&
+              savedSessId === matched.active_session_id &&
+              savedSessCode &&
+              savedSessCode.toUpperCase() === matched.machine_code.toUpperCase() &&
+              savedSessToken
+            );
+
+            // CASE 1: Machine is in use, but this phone is NOT the owner (Customer B)
+            if (matched.status === 'in_use' && !isSessionOwner) {
+              setIsOccupiedByOther(true);
+              setOccupiedMachine(matched);
+              setIsRunning(false);
+              return;
             }
 
-            // REFRESH RESILIENCE: Prioritize server-side seconds_remaining (drift-free)
-            const serverSecondsRemaining = typeof matched.seconds_remaining === 'number' ? matched.seconds_remaining : null;
-            const serverTotalSecs = matched.total_seconds || (matched.minutes_remaining ? matched.minutes_remaining * 60 : 0);
+            // If machine was previously occupied but is now available, clear occupied state
+            setIsOccupiedByOther(false);
+            setOccupiedMachine(null);
 
-            // Compute fallback remaining seconds from target_end or expected_end_at
-            let effectiveRemaining = serverSecondsRemaining;
-            if (effectiveRemaining === null || effectiveRemaining <= 0) {
-              const savedEnd = localStorage.getItem('active_session_target_end');
-              if (savedEnd) {
-                const localRem = Math.max(0, Math.floor((parseInt(savedEnd, 10) - Date.now()) / 1000));
-                if (localRem > 0) {
-                  effectiveRemaining = localRem;
+            // CASE 2: This phone IS the owner of the active session (Customer A returning/refreshing)
+            if (isSessionOwner) {
+              setActiveSessionId(matched.active_session_id);
+
+              const serverSecondsRemaining = typeof matched.seconds_remaining === 'number' ? matched.seconds_remaining : null;
+              const serverTotalSecs = matched.total_seconds || (matched.minutes_remaining ? matched.minutes_remaining * 60 : 0);
+
+              let effectiveRemaining = serverSecondsRemaining;
+              if (effectiveRemaining === null || effectiveRemaining <= 0) {
+                const savedEnd = localStorage.getItem('active_session_target_end');
+                if (savedEnd) {
+                  const localRem = Math.max(0, Math.floor((parseInt(savedEnd, 10) - Date.now()) / 1000));
+                  if (localRem > 0) {
+                    effectiveRemaining = localRem;
+                  }
                 }
               }
-            }
 
-            if (matched.status === 'in_use' && (effectiveRemaining === null || effectiveRemaining <= 0) && matched.expected_end_at) {
-              const endMs = new Date(matched.expected_end_at).getTime();
-              const nowMs = Date.now();
-              const diff = Math.floor((endMs - nowMs) / 1000);
-              if (diff > 0) {
-                effectiveRemaining = diff;
+              if ((effectiveRemaining === null || effectiveRemaining <= 0) && matched.expected_end_at) {
+                const endMs = new Date(matched.expected_end_at).getTime();
+                const nowMs = Date.now();
+                const diff = Math.floor((endMs - nowMs) / 1000);
+                if (diff > 0) {
+                  effectiveRemaining = diff;
+                }
+              }
+
+              if (effectiveRemaining !== null && effectiveRemaining > 0) {
+                const finalTotalSecs = serverTotalSecs > 0 ? serverTotalSecs : Math.max(effectiveRemaining, initialTotalSecs);
+                const finalDuration = Math.ceil(finalTotalSecs / 60);
+
+                setDuration(finalDuration);
+                setTotalSeconds(finalTotalSecs);
+                setSecondsRemaining(effectiveRemaining);
+                setIsRunning(true);
+                setStep(effectiveRemaining <= 300 ? 4 : 3);
+
+                const updatedTargetEnd = Date.now() + effectiveRemaining * 1000;
+                localStorage.setItem('active_session_target_end', String(updatedTargetEnd));
+                localStorage.setItem('active_session_total_secs', String(finalTotalSecs));
+                localStorage.setItem('active_session_duration', String(finalDuration));
+                return;
+              } else {
+                setSecondsRemaining(0);
+                setIsRunning(false);
+                setStep(4);
+                localStorage.removeItem('active_session_target_end');
+                return;
               }
             }
 
-            if (effectiveRemaining !== null && effectiveRemaining > 0) {
-              const finalTotalSecs = serverTotalSecs > 0 ? serverTotalSecs : Math.max(effectiveRemaining, initialTotalSecs);
-              const finalDuration = Math.ceil(finalTotalSecs / 60);
-
-              setDuration(finalDuration);
-              setTotalSeconds(finalTotalSecs);
-              setSecondsRemaining(effectiveRemaining);
-              setIsRunning(true);
-              setStep(effectiveRemaining <= 300 ? 4 : 3);
-
-              // Update client target end aligned with remaining time
-              const updatedTargetEnd = Date.now() + effectiveRemaining * 1000;
-              localStorage.setItem('active_session_target_end', String(updatedTargetEnd));
-              localStorage.setItem('active_session_total_secs', String(finalTotalSecs));
-              localStorage.setItem('active_session_duration', String(finalDuration));
-              return;
-            } else if (matched.status === 'in_use' && (!effectiveRemaining || effectiveRemaining <= 0)) {
-              setSecondsRemaining(0);
-              setIsRunning(false);
-              setStep(4);
-              localStorage.removeItem('active_session_target_end');
-              return;
+            // CASE 3: Machine is available! If local session ended, ensure clean state for new wash
+            if (matched.status === 'available') {
+              if (!hasActiveLocalSession) {
+                setIsRunning(false);
+                setStep(1);
+              }
             }
             return;
           }
@@ -259,6 +298,36 @@ export default function CustomerView() {
       window.removeEventListener('focus', handleSyncOnFocus);
     };
   }, [isRunning, step]);
+
+  // Live Server Sync: periodically checks if active session was cancelled or completed on server (e.g. by Store Owner)
+  useEffect(() => {
+    if (!isRunning || !activeSessionId) return;
+
+    const syncInterval = setInterval(async () => {
+      try {
+        const res = await apiFetch(`/api/sessions/${activeSessionId}/`);
+        if (res && res.ok) {
+          const sessionData = await res.json();
+          if (sessionData.status === 'cancelled') {
+            setIsRunning(false);
+            localStorage.removeItem('active_session_target_end');
+            localStorage.removeItem('active_session_id');
+            localStorage.removeItem('active_session_token');
+            setIsCancelledByOwner(true);
+          } else if (sessionData.status === 'completed' && step === 3) {
+            setSecondsRemaining(0);
+            setIsRunning(false);
+            localStorage.removeItem('active_session_target_end');
+            setStep(4);
+          }
+        }
+      } catch (err) {
+        // silent fail on network hiccups
+      }
+    }, 5000);
+
+    return () => clearInterval(syncInterval);
+  }, [isRunning, activeSessionId, step]);
 
   const playChime = () => {
     try {
@@ -381,6 +450,9 @@ export default function CustomerView() {
         setActiveSessionId(data.id);
         localStorage.setItem('active_session_id', data.id);
       }
+      if (data.client_token) {
+        localStorage.setItem('active_session_token', data.client_token);
+      }
       if (name) localStorage.setItem('active_customer_name', name);
       if (email) localStorage.setItem('active_customer_email', email);
       if (phone) localStorage.setItem('active_customer_phone', phone);
@@ -415,27 +487,52 @@ export default function CustomerView() {
   };
 
   const handleCancelTimer = async () => {
-    setIsRunning(false);
-    setSecondsRemaining(0);
-    setStep(2);
-
-    localStorage.removeItem('active_session_id');
-    localStorage.removeItem('active_session_code');
-    localStorage.removeItem('active_session_target_end');
-    localStorage.removeItem('active_session_total_secs');
-    localStorage.removeItem('active_session_duration');
+    const isConfirm = window.confirm('Are you sure you want to cancel your wash timer?');
+    if (!isConfirm) return;
 
     const sessId = activeSessionId || localStorage.getItem('active_session_id');
+    const token = localStorage.getItem('active_session_token') || '';
+
     if (sessId) {
       try {
-        await apiFetch(`/api/sessions/${sessId}/cancel/`, {
+        const res = await apiFetch(`/api/sessions/${sessId}/cancel/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_token: token }),
         });
+        if (res && res.status === 403) {
+          alert('Unauthorized: You can only cancel a wash timer that you started on this device.');
+          return;
+        }
       } catch (err) {
         console.warn('Backend cancel error:', err);
       }
       setActiveSessionId(null);
+    }
+
+    setIsRunning(false);
+    setSecondsRemaining(0);
+    setStep(1);
+
+    localStorage.removeItem('active_session_id');
+    localStorage.removeItem('active_session_code');
+    localStorage.removeItem('active_session_token');
+    localStorage.removeItem('active_session_target_end');
+    localStorage.removeItem('active_session_total_secs');
+    localStorage.removeItem('active_session_duration');
+  };
+
+  const handleSelectMachine = (newCode) => {
+    const found = availableMachines.find((m) => m.machine_code.toUpperCase() === newCode.toUpperCase());
+    if (found) {
+      setMachineCode(found.machine_code);
+      setMachineType(found.machine_type);
+      setIsOccupiedByOther(false);
+      setOccupiedMachine(null);
+      setStep(1);
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.set('machine', found.machine_code);
+      window.history.pushState({}, '', newUrl.toString());
     }
   };
 
@@ -494,15 +591,132 @@ export default function CustomerView() {
           </div>
         </header>
 
-        {/* 3-segment progress bar */}
-        <div className="stepper-bar">
-          <div className={`bar-segment ${step >= 1 ? 'active' : ''}`} />
-          <div className={`bar-segment ${step >= 2 ? 'active' : ''}`} />
-          <div className={`bar-segment ${step >= 3 ? 'active' : ''}`} />
-        </div>
+        {/* ================= OCCUPIED VIEW (WHEN ANOTHER CUSTOMER SCANS AN IN-USE MACHINE) ================= */}
+        {isOccupiedByOther && occupiedMachine && (
+          <main className="content-step occupied-view">
+            <div className="occupied-badge">
+              <span className="pulse-dot red-pulse"></span>
+              MACHINE CURRENTLY IN USE
+            </div>
+
+            <h2 className="main-heading">
+              {occupiedMachine.machine_code} is running.
+            </h2>
+            <p className="main-subtext">
+              Another customer is currently using this {occupiedMachine.machine_type === 'washer' ? 'washing machine' : 'dryer'}.
+              To protect their cycle, you cannot start a wash or interrupt their timer.
+            </p>
+
+            {/* Time remaining card */}
+            <div className="occupied-timer-card">
+              <div className="occupied-time-row">
+                <Clock size={28} className="occupied-clock-icon" />
+                <div>
+                  <span className="occupied-time-digits">
+                    {occupiedMachine.minutes_remaining > 0 ? `~${occupiedMachine.minutes_remaining} min` : 'Finishing soon'}
+                  </span>
+                  <span className="occupied-time-sub">estimated until machine is free</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="occupied-safe-banner">
+              <Shield size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span>Only the customer who started this wash on their phone can manage or cancel this timer.</span>
+            </div>
+
+            {/* Other available machines in the store */}
+            <div className="alternate-machines-section">
+              <h4 className="alternate-heading">Machines available right now:</h4>
+              {availableMachines.filter(m => m.is_available && m.machine_code !== occupiedMachine.machine_code).length > 0 ? (
+                <div className="alternate-grid">
+                  {availableMachines
+                    .filter(m => m.is_available && m.machine_code !== occupiedMachine.machine_code)
+                    .map((alt) => (
+                      <button
+                        key={alt.machine_code}
+                        type="button"
+                        className="alt-machine-card"
+                        onClick={() => handleSelectMachine(alt.machine_code)}
+                      >
+                        <div className="alt-code">{alt.machine_code}</div>
+                        <div className="alt-type">{alt.machine_type === 'washer' ? 'Washer' : 'Dryer'}</div>
+                        <div className="alt-tag">Available · Tap to use</div>
+                      </button>
+                    ))}
+                </div>
+              ) : (
+                <p className="no-alt-text">All other machines are currently busy or under maintenance.</p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="refresh-occupied-btn"
+              onClick={() => {
+                apiFetch('/api/machines/')
+                  .then(r => r.ok ? r.json() : null)
+                  .then(data => {
+                    if (data && Array.isArray(data)) {
+                      setAvailableMachines(data);
+                      const current = data.find(m => m.machine_code.toLowerCase() === occupiedMachine.machine_code.toLowerCase());
+                      if (current && current.status === 'available') {
+                        setIsOccupiedByOther(false);
+                        setOccupiedMachine(null);
+                        setStep(1);
+                      }
+                    }
+                  });
+              }}
+            >
+              <RotateCcw size={16} />
+              <span>Check if {occupiedMachine.machine_code} is free</span>
+            </button>
+          </main>
+        )}
+
+        {/* ================= SESSION CANCELLED BY STORE OWNER NOTICE ================= */}
+        {!isOccupiedByOther && isCancelledByOwner && (
+          <main className="content-step">
+            <div className="occupied-badge cancelled-badge">
+              <span className="pulse-dot orange-pulse"></span>
+              SESSION CANCELLED BY STORE OWNER
+            </div>
+
+            <h2 className="main-heading">
+              Cycle Cancelled.
+            </h2>
+            <p className="main-subtext">
+              Your wash session on machine {machineCode} was ended early by the store owner or administration.
+              The machine has been released back to available.
+            </p>
+
+            <button
+              type="button"
+              className="primary-btn navy-btn"
+              style={{ marginTop: '24px' }}
+              onClick={() => {
+                setIsCancelledByOwner(false);
+                setStep(1);
+              }}
+            >
+              <span>Start a new wash</span>
+              <ArrowRight size={18} />
+            </button>
+          </main>
+        )}
+
+        {/* 3-segment progress bar (shown during regular workflow) */}
+        {!isOccupiedByOther && !isCancelledByOwner && (
+          <div className="stepper-bar">
+            <div className={`bar-segment ${step >= 1 ? 'active' : ''}`} />
+            <div className={`bar-segment ${step >= 2 ? 'active' : ''}`} />
+            <div className={`bar-segment ${step >= 3 ? 'active' : ''}`} />
+          </div>
+        )}
 
         {/* ================= STEP 01: CHECK IN ================= */}
-        {step === 1 && (
+        {!isOccupiedByOther && !isCancelledByOwner && step === 1 && (
           <main className="content-step">
             <div className="heading-with-machine-row">
               <div className="heading-left-col">
@@ -659,7 +873,7 @@ export default function CustomerView() {
         )}
 
         {/* ================= STEP 02: SET YOUR TIMER ================= */}
-        {step === 2 && (
+        {!isOccupiedByOther && !isCancelledByOwner && step === 2 && (
           <main className="content-step">
             <div className="step-tag-row">
               <button className="back-link-btn" onClick={() => setStep(1)}>
@@ -760,7 +974,7 @@ export default function CustomerView() {
         )}
 
         {/* ================= STEP 03: ACTIVE TIMER (RUNNING) ================= */}
-        {step === 3 && (
+        {!isOccupiedByOther && !isCancelledByOwner && step === 3 && (
           <main className="content-step">
             <div className="step-tag">03 / A LITTLE TIME FOR YOU</div>
             <h2 className="main-heading">
@@ -844,7 +1058,7 @@ export default function CustomerView() {
         )}
 
         {/* ================= STEP 04: COLLECTION REMINDER (<= 5 MIN) & COMPLETION ================= */}
-        {step === 4 && (
+        {!isOccupiedByOther && !isCancelledByOwner && step === 4 && (
           <main className="content-step">
             <div className="step-tag">
               {secondsRemaining > 0 ? '03 / TIME TO HEAD BACK' : '04 / WASH COMPLETED'}

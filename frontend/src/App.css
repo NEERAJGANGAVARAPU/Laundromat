@@ -1106,3 +1106,206 @@
   display: inline-block;
   vertical-align: middle;
 }
+
+/* ================= OCCUPIED MACHINE & OWNER CANCEL NOTICES ================= */
+.occupied-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.occupied-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  align-self: flex-start;
+  border: 1px solid #fecaca;
+}
+
+.cancelled-badge {
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: pulse-glow 1.8s infinite;
+}
+
+.red-pulse {
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+}
+
+.orange-pulse {
+  background: #f97316;
+  box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7);
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.occupied-timer-card {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px 20px;
+  margin: 16px 0 20px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.occupied-time-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.occupied-clock-icon {
+  color: #0b1a44;
+  flex-shrink: 0;
+}
+
+.occupied-time-digits {
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0b1a44;
+  line-height: 1.1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.occupied-time-sub {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.occupied-safe-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 22px;
+}
+
+.alternate-machines-section {
+  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.alternate-heading {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 12px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.alternate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.alt-machine-card {
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.alt-machine-card:hover {
+  border-color: #2558ea;
+  background: #f0f7ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 88, 234, 0.12);
+}
+
+.alt-code {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0b1a44;
+}
+
+.alt-type {
+  font-size: 12px;
+  color: #475569;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.alt-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+.no-alt-text {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  font-style: italic;
+}
+
+.refresh-occupied-btn {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 11px 18px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.refresh-occupied-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0b1a44;
+}

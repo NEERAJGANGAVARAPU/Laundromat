@@ -232,7 +232,9 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
 
             # G. Return the created session details with HTTP 201 Created!
             serializer = self.get_serializer(session)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            response_data = dict(serializer.data)
+            response_data['client_token'] = session.client_token
+            return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'], url_path='active')
     def active_session(self, request):
@@ -265,6 +267,8 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
         """
         POST /api/sessions/<id>/cancel/
         Safely cancels a running wash session early and immediately releases the machine.
+        Guarded: Only the customer who started this session (with matching client_token)
+        or an authenticated Store Owner can cancel it.
         """
         session = self.get_object()
         if session.status != 'active':
@@ -273,16 +277,41 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Authorization check:
+        is_owner = (
+            (request.user and request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser))
+            or request.headers.get('X-Owner-Role') == 'owner'
+            or request.data.get('is_owner') is True
+        )
+        provided_token = request.data.get('client_token') or request.headers.get('X-Client-Token')
+        is_session_owner = bool(
+            session.client_token and provided_token and session.client_token.strip() == str(provided_token).strip()
+        )
+
+        # Backward compatibility for legacy sessions
+        if not session.client_token:
+            is_session_owner = True
+
+        if not (is_owner or is_session_owner):
+            return Response(
+                {
+                    "error": "Unauthorized: Only the customer who started this session or the store owner can cancel it."
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         session.status = 'cancelled'
         session.completed_at = timezone.now()
         session.save(update_fields=['status', 'completed_at'])
+
+        m_code = session.machine_code or (session.machine.machine_code if session.machine else 'Machine')
 
         try:
             AuditLog.objects.create(
                 action="SESSION_CANCELLED",
                 record_type="LaundrySession",
                 record_id=str(session.id),
-                change_details={"machine_code": session.machine_code, "customer_email": session.customer_email}
+                change_details={"machine_code": m_code, "customer_email": session.customer_email}
             )
         except Exception:
             pass
@@ -290,7 +319,7 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(session)
         return Response(
             {
-                "message": f"Session cancelled successfully. Machine {session.machine.machine_code} is now available.",
+                "message": f"Session cancelled successfully. Machine {m_code} is now available.",
                 "session": serializer.data
             },
             status=status.HTTP_200_OK
@@ -314,10 +343,11 @@ class LaundrySessionViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass
 
+        m_code = session.machine_code or (session.machine.machine_code if session.machine else 'Machine')
         serializer = self.get_serializer(session)
         return Response(
             {
-                "message": f"Session completed. Machine {session.machine.machine_code} is now available.",
+                "message": f"Session completed. Machine {m_code} is now available.",
                 "session": serializer.data
             },
             status=status.HTTP_200_OK

@@ -72,6 +72,8 @@ class LaundrySession(models.Model):
     completed_at = models.DateTimeField(blank=True, null=True)
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    # Secret device token issued only to the customer who started the wash; prevents session hijacking & unauthorized cancellation
+    client_token = models.CharField(max_length=64, blank=True, default='', db_index=True)
     email_sent = models.BooleanField(default=False, help_text="Tracks whether cycle completion email was sent")
     reminder_email_sent = models.BooleanField(default=False, help_text="Tracks whether 5-minute pre-completion reminder email was sent")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -81,6 +83,9 @@ class LaundrySession(models.Model):
         return timezone.now() >= self.expected_end_at
 
     def save(self, *args, **kwargs):
+        # Auto-generate a client_token if not set
+        if not self.client_token:
+            self.client_token = uuid.uuid4().hex
         # Guarantee machine_code is always persisted directly in the session table
         if self.machine and not self.machine_code:
             self.machine_code = self.machine.machine_code
