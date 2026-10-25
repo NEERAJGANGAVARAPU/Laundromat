@@ -130,7 +130,7 @@ export default function OwnerLogin({ onLogin }) {
         </div>
 
         <div className="login-left-footer">
-          <span>SPINZONE &nbsp;/&nbsp; WASH CLUB</span>
+          <span>SPINZONE</span>
           <div className="powered-by-brand-mini">
             <span className="powered-by-text-light">Powered by:</span>
             <img src="/sanielsoft_full_logo.png" alt="SanielSoft" className="sanielsoft-logo-img-sm" />
