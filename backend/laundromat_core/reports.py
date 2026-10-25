@@ -1,6 +1,8 @@
+import os
 import io
 import csv
 from datetime import datetime
+from PIL import Image
 from django.http import HttpResponse
 from django.utils import timezone
 from django.db.models import Count, Sum, Q
@@ -11,6 +13,123 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+
+def get_assets_dir():
+    return os.path.join(os.path.dirname(__file__), 'assets')
+
+
+def get_watermark_image_path():
+    """
+    Returns path to transparent watermark icon.
+    Auto-generates 20% alpha transparent image if missing.
+    """
+    assets_dir = get_assets_dir()
+    wm_path = os.path.join(assets_dir, 'sanielsoft_icon_watermark.png')
+    if os.path.exists(wm_path):
+        return wm_path
+
+    icon_path = os.path.join(assets_dir, 'sanielsoft_icon.png')
+    if not os.path.exists(icon_path):
+        icon_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'public', 'sanielsoft_icon.png')
+        )
+
+    if os.path.exists(icon_path):
+        try:
+            img = Image.open(icon_path).convert('RGBA')
+            r, g, b, a = img.split()
+            # 20% opacity (subtle watermark, 100% legible text on top)
+            new_a = a.point(lambda p: int(p * 0.20))
+            wm = Image.merge('RGBA', (r, g, b, new_a))
+            os.makedirs(assets_dir, exist_ok=True)
+            wm.save(wm_path)
+            return wm_path
+        except Exception:
+            return icon_path
+    return None
+
+
+def get_full_logo_image_path():
+    """
+    Returns path to full SanielSoft logo image.
+    """
+    assets_dir = get_assets_dir()
+    full_path = os.path.join(assets_dir, 'sanielsoft_full_logo.png')
+    if os.path.exists(full_path):
+        return full_path
+    alt_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'public', 'sanielsoft_full_logo.png')
+    )
+    if os.path.exists(alt_path):
+        return alt_path
+    return None
+
+
+def draw_page_decorations(canvas, doc):
+    """
+    Renders on every page of the PDF:
+    1. Background Watermark: Enlarged SanielSoft icon in center of page (semi-transparent)
+    2. Footer: Divider line, Store label, Page number, and Powered by: SanielSoft full logo
+    """
+    canvas.saveState()
+
+    # 1. Background Watermark: Enlarged SanielSoft Icon in center of page
+    # Letter dimensions: 612pt wide x 792pt high.
+    # Enlarged to ~50% page width (~300pt wide)
+    watermark_path = get_watermark_image_path()
+    if watermark_path and os.path.exists(watermark_path):
+        wm_width = 300
+        wm_height = 307
+        wm_x = (612.0 - wm_width) / 2.0
+        wm_y = (792.0 - wm_height) / 2.0
+        canvas.drawImage(
+            watermark_path,
+            wm_x,
+            wm_y,
+            width=wm_width,
+            height=wm_height,
+            mask='auto',
+            preserveAspectRatio=True
+        )
+
+    # 2. Bottom Footer on every page
+    # Divider line above footer
+    canvas.setStrokeColor(colors.HexColor('#E2E8F0'))
+    canvas.setLineWidth(0.75)
+    canvas.line(36, 44, 612 - 36, 44)
+
+    # Left: Store & Report label
+    canvas.setFont('Helvetica', 8)
+    canvas.setFillColor(colors.HexColor('#64748B'))
+    canvas.drawString(36, 25, "Spinzone Laundromat · Official Session Usage Report")
+
+    # Center: Page Number
+    page_num = canvas.getPageNumber()
+    canvas.drawCentredString(306, 25, f"Page {page_num}")
+
+    # Right: "Powered by:" + SanielSoft full logo
+    footer_logo_path = get_full_logo_image_path()
+    if footer_logo_path and os.path.exists(footer_logo_path):
+        logo_h = 16
+        logo_w = 78
+        logo_x = 612 - 36 - logo_w
+        logo_y = 17
+        canvas.drawRightString(logo_x - 6, 25, "Powered by:")
+        canvas.drawImage(
+            footer_logo_path,
+            logo_x,
+            logo_y,
+            width=logo_w,
+            height=logo_h,
+            mask='auto',
+            preserveAspectRatio=True
+        )
+    else:
+        canvas.drawRightString(612 - 36, 25, "Powered by: SanielSoft")
+
+    canvas.restoreState()
+
 
 
 def format_dt(dt, fmt='%Y-%m-%d %H:%M:%S'):
@@ -147,24 +266,31 @@ def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_fi
             s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
             e_d = datetime.strptime(end_date, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date__gte=s_d, started_at__date__lte=e_d)
+            period_label = f"{start_date} to {end_date}"
             filename_suffix = f"{start_date}_to_{end_date}"
         except ValueError:
+            period_label = "Date Range"
             filename_suffix = "range"
     elif start_date:
         try:
             s_d = datetime.strptime(start_date, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date__gte=s_d)
+            period_label = f"From {start_date}"
             filename_suffix = f"from_{start_date}"
         except ValueError:
+            period_label = "Date Range"
             filename_suffix = "range"
     elif date_str and date_str != 'all':
         try:
             d = datetime.strptime(date_str, '%Y-%m-%d').date()
             sessions = sessions.filter(started_at__date=d)
+            period_label = str(d)
             filename_suffix = str(d)
         except ValueError:
+            period_label = str(date_str)
             filename_suffix = "date"
     else:
+        period_label = "All Historical Records"
         filename_suffix = "all_time"
 
     if status_filter and status_filter != 'all':
@@ -184,6 +310,13 @@ def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_fi
     response['Content-Disposition'] = f'attachment; filename="laundromat_sessions_report_{filename_suffix}.csv"'
 
     writer = csv.writer(response)
+
+    # Report Header & SanielSoft Branding
+    current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')
+    writer.writerow(['Spinzone | SanielSoft - Official Laundry Session & Machine Usage Report'])
+    writer.writerow([f'Report Generated: {current_time_str}', f'Date Filter: {period_label}'])
+    writer.writerow([])
+
     writer.writerow([
         'Session ID',
         'Machine Code',
@@ -215,6 +348,13 @@ def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_fi
             local_completed,
             s.status.upper()
         ])
+
+    # Bottom Footer: SanielSoft Branding
+    writer.writerow([])
+    writer.writerow(['# -------------------------------------------------------------'])
+    writer.writerow(['# Powered by: SanielSoft (Saniel Software Services Pvt Ltd)'])
+    writer.writerow(['# Spinzone Laundry Management Portal · All Rights Reserved'])
+    writer.writerow(['# -------------------------------------------------------------'])
 
     return response
 
@@ -281,7 +421,7 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
         rightMargin=36,
         leftMargin=36,
         topMargin=36,
-        bottomMargin=36
+        bottomMargin=54
     )
 
     styles = getSampleStyleSheet()
@@ -328,8 +468,8 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
 
     elements = []
 
-    # Title & Subtitle
-    elements.append(Paragraph("Spinzone | Wash Club", title_style))
+    # Title & Subtitle (SanielSoft Branding)
+    elements.append(Paragraph("Spinzone | SanielSoft", title_style))
     elements.append(Paragraph("Official Laundry Session & Machine Usage Report", sub_style))
     
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')
@@ -446,8 +586,8 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
     ]))
     elements.append(sess_table)
 
-    # Build PDF
-    doc.build(elements)
+    # Build PDF with background watermark and footer on every page
+    doc.build(elements, onFirstPage=draw_page_decorations, onLaterPages=draw_page_decorations)
     pdf_bytes = buffer.getvalue()
     buffer.close()
 
