@@ -1034,21 +1034,6 @@ export default function CustomerView() {
               <p>Keep this page open to see your countdown and the on-screen collection reminder.</p>
             </div>
 
-            {/* Demo / Test helper button to jump to 5 min state */}
-            <div className="demo-toolbar">
-              <button
-                className="demo-pill-btn"
-                onClick={() => {
-                  const demoRem = 300;
-                  setSecondsRemaining(demoRem);
-                  setStep(4);
-                  localStorage.setItem('active_session_target_end', String(Date.now() + demoRem * 1000));
-                  playChime();
-                }}
-              >
-                Fast-forward to 5 min left (Screen 4 Demo)
-              </button>
-            </div>
 
             {/* Cancel Button */}
             <button className="cancel-timer-btn" onClick={handleCancelTimer}>

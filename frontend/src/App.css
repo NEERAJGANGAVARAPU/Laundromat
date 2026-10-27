@@ -1018,27 +1018,7 @@
   line-height: 1.4;
 }
 
-/* Demo Toolbar & Cancel */
-.demo-toolbar {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-
-.demo-pill-btn {
-  background-color: #ecdccb;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 999px;
-  transition: background-color 0.2s;
-}
-
-.demo-pill-btn:hover {
-  background-color: #dfcbba;
-  color: #0b1a44;
-}
+/* Cancel Timer Button */
 
 .cancel-timer-btn {
   background: transparent;
