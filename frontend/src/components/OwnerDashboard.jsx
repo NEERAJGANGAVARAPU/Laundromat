@@ -39,7 +39,9 @@ import {
   KeyRound,
   ShieldCheck,
   Mail,
-  ArrowRight
+  ArrowRight,
+  Menu,
+  X as XIcon
 } from 'lucide-react';
 import ActivityAnalyticsView from './owner/ActivityAnalyticsView';
 import '../OwnerPortal.css';
@@ -61,6 +63,7 @@ export default function OwnerDashboard() {
 
   // Navigation tab in sidebar
   const [activeNav, setActiveNav] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Machines state (fetched live from Django API)
   const [machines, setMachines] = useState([]);
@@ -891,9 +894,14 @@ export default function OwnerDashboard() {
 
   return (
     <div className="dashboard-layout">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* ================= LEFT SIDEBAR ================= */}
-      <aside className="owner-sidebar">
-        {/* Brand */}
+      <aside className={`owner-sidebar${sidebarOpen ? ' sidebar-open' : ''}`}>
+        {/* Brand + Mobile Close */}
         <div className="sidebar-brand-box">
           <div className="sidebar-brand-left">
             <div className="brand-icon">
@@ -918,22 +926,16 @@ export default function OwnerDashboard() {
               <span className="sidebar-brand-sub">OWNER PORTAL</span>
             </div>
           </div>
-        </div>
-
-        {/* Location selector */}
-        <div className="sidebar-location-card">
-          <div className="loc-text">
-            <span className="loc-name">Main Street</span>
-            <span className="loc-city">San Francisco, CA</span>
-          </div>
-          <ChevronDown size={16} className="loc-chevron" />
+          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
+            <XIcon size={20} />
+          </button>
         </div>
 
         {/* Nav Menu */}
         <nav className="sidebar-nav">
           <button
             className={`nav-item-btn ${activeNav === 'overview' ? 'active' : ''}`}
-            onClick={() => setActiveNav('overview')}
+            onClick={() => { setActiveNav('overview'); setSidebarOpen(false); }}
           >
             <LayoutDashboard size={18} />
             <span>Overview</span>
@@ -941,7 +943,7 @@ export default function OwnerDashboard() {
 
           <button
             className={`nav-item-btn ${activeNav === 'reports' ? 'active' : ''}`}
-            onClick={() => setActiveNav('reports')}
+            onClick={() => { setActiveNav('reports'); setSidebarOpen(false); }}
           >
             <BarChart3 size={18} />
             <span>Reports</span>
@@ -951,6 +953,7 @@ export default function OwnerDashboard() {
             className={`nav-item-btn ${activeNav === 'qr' ? 'active' : ''}`}
             onClick={() => {
               setActiveNav('overview');
+              setSidebarOpen(false);
               setTimeout(() => {
                 const el = document.getElementById('qr-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -965,6 +968,7 @@ export default function OwnerDashboard() {
             className={`nav-item-btn ${activeNav === 'machines' ? 'active' : ''}`}
             onClick={() => {
               setActiveNav('overview');
+              setSidebarOpen(false);
               setTimeout(() => {
                 const el = document.getElementById('machines-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -980,6 +984,7 @@ export default function OwnerDashboard() {
             className={`nav-item-btn ${activeNav === 'customers' ? 'active' : ''}`}
             onClick={() => {
               setActiveNav('overview');
+              setSidebarOpen(false);
               setTimeout(() => {
                 const el = document.getElementById('sessions-section');
                 if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -993,7 +998,7 @@ export default function OwnerDashboard() {
 
           <button
             className={`nav-item-btn ${activeNav === 'activity' ? 'active' : ''}`}
-            onClick={() => setActiveNav('activity')}
+            onClick={() => { setActiveNav('activity'); setSidebarOpen(false); }}
           >
             <Activity size={18} />
             <span>Activity</span>
@@ -1003,7 +1008,7 @@ export default function OwnerDashboard() {
 
           <button
             className={`nav-item-btn ${activeNav === 'security' ? 'active' : ''}`}
-            onClick={() => setActiveNav('security')}
+            onClick={() => { setActiveNav('security'); setSidebarOpen(false); }}
           >
             <ShieldAlert size={18} />
             <span>Sessions &amp; security</span>
@@ -1033,8 +1038,40 @@ export default function OwnerDashboard() {
 
       {/* ================= MAIN DASHBOARD CONTENT ================= */}
       <main className="dashboard-main">
+        {/* Mobile Brand Header — Spinzone Name & Logo above Owner / Overview (mobile only) */}
+        <div className="mobile-brand-bar">
+          <div className="mobile-brand-left">
+            <div className="brand-icon mobile-brand-icon">
+              <svg viewBox="0 0 32 32" fill="none" className="wave-svg">
+                <circle cx="16" cy="16" r="14.5" stroke="#2558EA" strokeWidth="2.5" />
+                <path
+                  d="M9 13.5C11.5 10.5 13.5 10.5 16 13.5C18.5 16.5 20.5 16.5 23 13.5"
+                  stroke="#2558EA"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M9 18.5C11.5 15.5 13.5 15.5 16 18.5C18.5 21.5 20.5 21.5 23 18.5"
+                  stroke="#2558EA"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <div className="brand-text-col">
+              <span className="mobile-brand-title">Spinzone</span>
+              <span className="mobile-brand-sub">OWNER PORTAL</span>
+            </div>
+          </div>
+        </div>
+
         {/* Top Header Bar */}
         <header className="main-topbar">
+          {/* Hamburger — mobile only */}
+          <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+            <Menu size={22} />
+          </button>
+
           <div className="breadcrumbs">
             <span>Owner portal</span>
             <span className="crumb-sep">/</span>
@@ -1899,19 +1936,19 @@ export default function OwnerDashboard() {
 
               <div className="report-card">
                 <span className="report-card-label">Session Outcomes</span>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'baseline', marginTop: '4px' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 800, color: '#03C988' }}>
-                    {reportAnalytics.summary?.completed_count ?? 0}
+                <div className="report-outcomes-badges-wrap">
+                  <span className="outcome-badge badge-done">
+                    <span className="outcome-dot dot-green" />
+                    Done <strong>{reportAnalytics.summary?.completed_count ?? 0}</strong>
                   </span>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>Done ·</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#2563eb' }}>
-                    {reportAnalytics.summary?.active_count ?? 0}
+                  <span className="outcome-badge badge-active">
+                    <span className="outcome-dot dot-blue" />
+                    Active <strong>{reportAnalytics.summary?.active_count ?? 0}</strong>
                   </span>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>Active ·</span>
-                  <span style={{ fontSize: '18px', fontWeight: 700, color: '#dc2626' }}>
-                    {reportAnalytics.summary?.cancelled_count ?? 0}
+                  <span className="outcome-badge badge-cancelled">
+                    <span className="outcome-dot dot-orange" />
+                    Cancelled <strong>{reportAnalytics.summary?.cancelled_count ?? 0}</strong>
                   </span>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>Cancelled</span>
                 </div>
                 <span className="report-card-sub">Completed vs active loads</span>
               </div>

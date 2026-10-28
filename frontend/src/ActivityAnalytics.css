@@ -1094,19 +1094,330 @@
   }
 }
 
-@media (max-width: 640px) {
-  .activity-kpi-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .activity-analytics-container {
+    padding: 4px 6px 36px 6px;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  .activity-hero-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .activity-hero-title {
+    font-size: 22px;
+    letter-spacing: -0.3px;
+  }
+
+  .activity-hero-subtitle {
+    font-size: 12px;
+  }
+
+  .activity-hero-right {
+    width: 100%;
+  }
+
+  .live-status-pill {
+    font-size: 11px;
+    padding: 4px 8px;
   }
 
   .activity-toolbar {
     flex-direction: column;
     align-items: flex-start;
+    padding: 10px;
+    gap: 10px;
+    margin-bottom: 16px;
+    border-radius: 14px;
   }
 
   .toolbar-left-group,
   .toolbar-right-group {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .timeframe-pill-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  /* ── 4 KPI Cards: exactly 2 per row on mobile ── */
+  .activity-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+
+  .activity-kpi-card {
+    padding: 10px 8px;
+    border-radius: 12px;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .kpi-card-header {
+    margin-bottom: 6px;
+    gap: 4px;
+  }
+
+  .kpi-bullet {
+    width: 6px;
+    height: 6px;
+  }
+
+  .kpi-title {
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .kpi-badge-sub {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+
+  .kpi-number {
+    font-size: 19px;
+    line-height: 1.1;
+    margin-bottom: 3px;
+  }
+
+  .kpi-subtext {
+    font-size: 9.5px;
+    line-height: 1.25;
+  }
+
+  /* ── 2-Col Sections on Mobile: Stacks vertically with zero overflow ── */
+  .activity-two-col-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    margin-bottom: 14px;
+  }
+
+  .activity-panel-card {
+    padding: 14px 10px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .panel-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .panel-card-title {
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+
+  .panel-card-subtitle {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .panel-date-badge {
+    align-self: flex-start;
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+
+  /* ── When customers come in (Heatmap) ── */
+  .heatmap-table-container {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+  }
+
+  .heatmap-table {
+    min-width: 360px;
+    border-spacing: 2px;
+  }
+
+  .heatmap-table th {
+    font-size: 8.5px;
+    padding: 2px 1px;
+  }
+
+  .heatmap-cell-block {
+    padding: 4px 0;
+    font-size: 9px;
+    border-radius: 3px;
+    min-width: 18px;
+  }
+
+  .heatmap-day-td {
+    font-size: 10px;
+    padding-left: 0;
+  }
+
+  .heatmap-corner-th {
+    width: 28px;
+  }
+
+  .heatmap-total-th,
+  .heatmap-row-total-td {
+    font-size: 9.5px;
+    width: 28px;
+  }
+
+  .heatmap-legend-row {
+    font-size: 10px;
+    gap: 6px;
+    padding-top: 6px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .legend-gradient-bar span {
+    width: 10px;
+    height: 7px;
+  }
+
+  /* ── How machine time is used ── */
+  .utilization-formula-box {
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+
+  .formula-main {
+    font-size: 11px;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  .formula-desc {
+    font-size: 10px;
+  }
+
+  .donut-chart-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    margin: 8px 0 12px 0;
+  }
+
+  .donut-container {
+    width: 110px;
+    height: 110px;
+  }
+
+  .donut-center-big {
+    font-size: 20px;
+  }
+
+  .donut-center-sub {
+    font-size: 9.5px;
+  }
+
+  .donut-legend-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .donut-legend-item {
+    gap: 6px;
+  }
+
+  .legend-name {
+    font-size: 11px;
+  }
+
+  .legend-val {
+    font-size: 12px;
+  }
+
+  /* ── Every machine, in view ── */
+  .unit-pill-badges {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .unit-summary-pill {
+    font-size: 9.5px;
+    padding: 2px 7px;
+  }
+
+  .machine-usage-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+    box-sizing: border-box;
+  }
+
+  .machine-usage-table {
+    min-width: 420px;
+  }
+
+  .machine-usage-table th {
+    font-size: 9.5px;
+    padding: 6px 4px;
+  }
+
+  .machine-usage-table td {
+    padding: 6px 4px;
+    font-size: 10.5px;
+  }
+
+  .machine-table-footnote {
+    font-size: 9.5px;
+    margin-top: 8px;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 480px) {
+  .activity-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px;
+  }
+
+  .activity-kpi-card {
+    padding: 8px 6px;
+  }
+
+  .kpi-title {
+    font-size: 10px;
+  }
+
+  .kpi-number {
+    font-size: 17px;
+  }
+
+  .kpi-subtext {
+    font-size: 9px;
+  }
+
+  .activity-panel-card {
+    padding: 12px 8px;
+  }
+
+  .heatmap-table {
+    min-width: 320px;
   }
 }
