@@ -5,29 +5,57 @@
 }
 
 :root {
-  --bg-sand: #fbf0df;
-  --bg-card: #ffffff;
-  --primary-blue: #2354e6;
+  /* Brand Core Colors */
+  --primary-blue: #2558ea;
   --primary-blue-hover: #1c45c2;
-  --navy-dark: #0f1844;
-  --navy-dark-hover: #090f2d;
-  --text-main: #0e1738;
-  --text-muted: #525f7f;
-  --text-subtle: #8492a6;
-  --light-blue-box: #d4eafc;
-  --light-blue-border: #bce0fb;
-  --border-card: #eedfcb;
-  --border-input: #e2e8f0;
+  --navy-dark: #0b1a44;
+  --navy-dark-hover: #071233;
+  --text-main: #0b1a44;
+  --text-muted: #52627a;
+  --text-subtle: #7e8fa6;
+  --brand-cyan: #03c988;
+  --brand-amber: #f59e0b;
+  --brand-rose: #f43f5e;
+
+  /* Glassmorphism Surface Transparencies */
+  --glass-bg-base: rgba(255, 255, 255, 0.62);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.45);
+  --glass-bg-card: rgba(255, 255, 255, 0.68);
+  --glass-bg-elevated: rgba(255, 255, 255, 0.82);
+  --glass-bg-input: rgba(255, 255, 255, 0.58);
+  --glass-bg-blue: rgba(214, 236, 253, 0.55);
+  --glass-bg-dark: rgba(11, 26, 68, 0.78);
+  --glass-bg-dark-elevated: rgba(15, 24, 68, 0.88);
+
+  /* Glassmorphism Light Borders (Simulating crisp edge of virtual glass) */
+  --glass-border-light: 1px solid rgba(255, 255, 255, 0.75);
+  --glass-border-subtle: 1px solid rgba(255, 255, 255, 0.45);
+  --glass-border-highlight: 1.5px solid rgba(255, 255, 255, 0.9);
+  --glass-border-primary: 1.5px solid rgba(37, 88, 234, 0.4);
+  --glass-border-dark: 1px solid rgba(255, 255, 255, 0.14);
+
+  /* Glass Shadows (Floating depth + specular inner light reflection) */
+  --glass-shadow-sm: 0 4px 16px 0 rgba(11, 26, 68, 0.05), inset 0 1px 1px 0 rgba(255, 255, 255, 0.9);
+  --glass-shadow-md: 0 10px 30px -4px rgba(11, 26, 68, 0.08), 0 2px 6px 0 rgba(0, 0, 0, 0.03), inset 0 1px 2px 0 rgba(255, 255, 255, 0.95);
+  --glass-shadow-lg: 0 20px 48px -8px rgba(11, 26, 68, 0.12), 0 4px 12px 0 rgba(0, 0, 0, 0.04), inset 0 1px 2px 0 rgba(255, 255, 255, 1);
+  --glass-shadow-dark: 0 16px 40px -6px rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.2);
+
+  /* Frosted Glass Blur Filters */
+  --glass-blur-sm: blur(10px) saturate(150%);
+  --glass-blur-md: blur(18px) saturate(170%);
+  --glass-blur-lg: blur(26px) saturate(190%);
+
+  /* Typography */
   --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html, body {
   min-height: 100vh;
-  background-color: var(--bg-sand);
   font-family: var(--font-family);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #f6f8fc;
 }
 
 #root {
@@ -35,7 +63,7 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background-color: var(--bg-sand);
+  width: 100%;
 }
 
 button {
@@ -43,9 +71,11 @@ button {
   cursor: pointer;
   border: none;
   outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-input {
+input, select, textarea {
   font-family: inherit;
   outline: none;
 }
+

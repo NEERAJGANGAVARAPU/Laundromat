@@ -142,7 +142,6 @@ export default function OwnerLogin({ onLogin }) {
       <div className="login-right-panel">
         <div className="right-top-bar">
           <span className="workspace-label">OWNER WORKSPACE</span>
-          <span className="preview-pill">Design preview</span>
         </div>
 
         <div className="login-card-center">
