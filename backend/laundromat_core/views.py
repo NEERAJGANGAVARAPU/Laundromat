@@ -453,18 +453,18 @@ def reports_analytics_view(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-def reports_csv_view(request):
+def reports_xls_view(request):
     """
-    GET /api/reports/csv/?date=YYYY-MM-DD&start_date=...&end_date=...&status=...&search=...
-    Streams a CSV file containing all filtered session records for the selected date or date range.
+    GET /api/reports/xls/?date=YYYY-MM-DD&start_date=...&end_date=...&status=...&search=...
+    Generates and streams a branded Excel (.xlsx) file containing all filtered session records for the selected date or date range.
     """
-    from .reports import export_sessions_csv
+    from .reports import export_sessions_xls
     date_str = request.query_params.get('date', 'all')
     start_date = request.query_params.get('start_date')
     end_date = request.query_params.get('end_date')
     status_filter = request.query_params.get('status', 'all')
     search_query = request.query_params.get('search', '')
-    return export_sessions_csv(date_str=date_str, start_date=start_date, end_date=end_date, status_filter=status_filter, search_query=search_query)
+    return export_sessions_xls(date_str=date_str, start_date=start_date, end_date=end_date, status_filter=status_filter, search_query=search_query)
 
 
 @api_view(['GET'])

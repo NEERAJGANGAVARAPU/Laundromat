@@ -276,8 +276,8 @@ export default function OwnerDashboard() {
     }
   }, [activeNav]);
 
-  // Export CSV Handler
-  const handleExportCSV = () => {
+  // Export XLS Handler
+  const handleExportXLS = () => {
     const params = new URLSearchParams();
     if (reportStartDate) params.append('start_date', reportStartDate);
     if (reportEndDate) params.append('end_date', reportEndDate);
@@ -285,7 +285,7 @@ export default function OwnerDashboard() {
     if (reportStatusFilter !== 'all') params.append('status', reportStatusFilter);
     if (reportSearch) params.append('search', reportSearch);
 
-    const url = `http://${apiHost}:8000/api/reports/csv/?${params.toString()}`;
+    const url = `http://${apiHost}:8000/api/reports/xls/?${params.toString()}`;
     window.open(url, '_blank');
   };
 
@@ -1808,9 +1808,9 @@ export default function OwnerDashboard() {
               </div>
 
               <div className="reports-controls-col">
-                <button className="btn-export btn-csv" onClick={handleExportCSV} title="Download CSV Report for selected date range">
+                <button className="btn-export btn-csv" onClick={handleExportXLS} title="Download XLS Report for selected date range">
                   <FileSpreadsheet size={16} />
-                  <span>Export CSV</span>
+                  <span>Export XLS</span>
                 </button>
 
                 <button className="btn-export btn-pdf" onClick={handleExportPDF} title="Download PDF Report for selected date range">

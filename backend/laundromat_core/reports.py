@@ -253,11 +253,19 @@ def get_day_wise_analytics(date_str=None, start_date=None, end_date=None):
     }
 
 
-def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_filter=None, search_query=None):
+def export_sessions_xls(date_str=None, start_date=None, end_date=None, status_filter=None, search_query=None):
     """
-    Generates and streams an Excel-compatible CSV file of customer sessions and machine usage.
+    Generates and streams a branded Excel (.xlsx) file of customer sessions and machine usage.
+    Includes SanielSoft logo header, styled data table, and full logo footer.
     Supports single date, date range (start_date to end_date), or all dates.
     """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.drawing.image import Image as XlImage
+    from openpyxl.utils import get_column_letter
+    from openpyxl.cell.rich_text import CellRichText, TextBlock
+    from openpyxl.cell.text import InlineFont
+
     sync_expired_sessions()
     sessions = LaundrySession.objects.all().select_related('machine').order_by('-started_at')
 
@@ -306,56 +314,163 @@ def export_sessions_csv(date_str=None, start_date=None, end_date=None, status_fi
             Q(machine__machine_code__icontains=q)
         )
 
-    response = HttpResponse(content_type='text/csv; charset=utf-8')
-    response['Content-Disposition'] = f'attachment; filename="laundromat_sessions_report_{filename_suffix}.csv"'
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Session Report"
 
-    writer = csv.writer(response)
+    # Define styles
+    brand_navy = '0B1A44'
+    brand_blue = '2558EA'
+    light_gray = 'F8FAFC'
+    border_color = 'CBD5E1'
+    text_dark = '1E293B'
+    text_muted = '64748B'
 
-    # Report Header & SanielSoft Branding
+    thin_border = Border(
+        left=Side(style='thin', color=border_color),
+        right=Side(style='thin', color=border_color),
+        top=Side(style='thin', color=border_color),
+        bottom=Side(style='thin', color=border_color)
+    )
+
+    title_font = Font(name='Calibri', size=16, bold=True, color=brand_navy)
+    subtitle_font = Font(name='Calibri', size=11, bold=True, color=brand_blue)
+    meta_font = Font(name='Calibri', size=9, color=text_muted)
+    header_font = Font(name='Calibri', size=10, bold=True, color='FFFFFF')
+    data_font = Font(name='Calibri', size=9, color=text_dark)
+    footer_font = Font(name='Calibri', size=9, italic=True, color=text_muted)
+
+    header_fill = PatternFill(start_color=brand_navy, end_color=brand_navy, fill_type='solid')
+    alt_row_fill = PatternFill(start_color=light_gray, end_color=light_gray, fill_type='solid')
+    center_align = Alignment(horizontal='center', vertical='center')
+    left_align = Alignment(horizontal='left', vertical='center')
+
+    # Set column widths
+    col_widths = [12, 14, 14, 22, 30, 18, 16, 22, 22, 14]
+    for i, w in enumerate(col_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    current_row = 1
+
+    # --- Logo Header ---
+    full_logo_path = get_full_logo_image_path()
+    if full_logo_path and os.path.exists(full_logo_path):
+        try:
+            logo_img = XlImage(full_logo_path)
+            logo_img.width = 200
+            logo_img.height = 41
+            ws.add_image(logo_img, 'A1')
+            current_row = 4  # Leave space for logo
+        except Exception:
+            current_row = 1
+
+    # --- Title & Meta ---
+    # "Spinzone" remains large (16pt); "| SanielSoft" is sized to match the subtitle below (11pt)
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
+    spinzone_inline_font = InlineFont(rFont='Calibri', sz=16.0, b=True, color=brand_navy)
+    saniel_inline_font = InlineFont(rFont='Calibri', sz=11.0, b=True, color=brand_navy)
+    title_rich = CellRichText(
+        TextBlock(spinzone_inline_font, 'Spinzone '),
+        TextBlock(saniel_inline_font, '| SanielSoft')
+    )
+    title_cell = ws.cell(row=current_row, column=1)
+    title_cell.value = title_rich
+    title_cell.alignment = left_align
+    current_row += 1
+
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
+    sub_cell = ws.cell(row=current_row, column=1, value='Official Laundry Session & Machine Usage Report')
+    sub_cell.font = subtitle_font
+    sub_cell.alignment = left_align
+    current_row += 1
+
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')
-    writer.writerow(['Spinzone | SanielSoft - Official Laundry Session & Machine Usage Report'])
-    writer.writerow([f'Report Generated: {current_time_str}', f'Date Filter: {period_label}'])
-    writer.writerow([])
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
+    meta_cell = ws.cell(row=current_row, column=1, value=f'Report Generated: {current_time_str}  |  Date Filter: {period_label}')
+    meta_cell.font = meta_font
+    meta_cell.alignment = left_align
+    current_row += 2  # blank row spacer
 
-    writer.writerow([
-        'Session ID',
-        'Machine Code',
-        'Machine Type',
-        'Customer Name',
-        'Customer Email',
-        'Customer Phone',
-        'Duration (Minutes)',
-        'Started At (Local)',
-        'Completed At (Local)',
-        'Status'
-    ])
+    # --- Column Headers ---
+    headers = [
+        'Session ID', 'Machine Code', 'Machine Type', 'Customer Name',
+        'Customer Email', 'Customer Phone', 'Duration (Min)',
+        'Started At (Local)', 'Completed At (Local)', 'Status'
+    ]
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=current_row, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+    current_row += 1
 
-    for s in sessions:
+    # --- Data Rows ---
+    for row_idx, s in enumerate(sessions):
         local_started = format_dt(s.started_at)
         local_completed = format_dt(s.completed_at)
         m_code = s.machine_code or (s.machine.machine_code if s.machine else '')
         m_type = s.machine.machine_type if s.machine else ('dryer' if m_code.upper().startswith('D') else 'washer')
-        phone_display = f'="{s.customer_phone}"' if (s.customer_phone and s.customer_phone.strip() and s.customer_phone != 'Not provided') else (s.customer_phone or 'Not provided')
-        writer.writerow([
+        phone_val = s.customer_phone if (s.customer_phone and s.customer_phone.strip() and s.customer_phone != 'Not provided') else (s.customer_phone or 'Not provided')
+
+        row_data = [
             str(s.id),
             m_code,
             m_type,
             s.customer_name or 'Not specified',
             s.customer_email,
-            phone_display,
+            phone_val,
             s.duration_minutes,
             local_started,
             local_completed,
             s.status.upper()
-        ])
+        ]
+        for col_idx, value in enumerate(row_data, 1):
+            cell = ws.cell(row=current_row, column=col_idx, value=value)
+            cell.font = data_font
+            cell.alignment = center_align if col_idx in (1, 2, 3, 7, 10) else left_align
+            cell.border = thin_border
+            if row_idx % 2 == 1:
+                cell.fill = alt_row_fill
+        current_row += 1
 
-    # Bottom Footer: SanielSoft Branding
-    writer.writerow([])
-    writer.writerow(['# -------------------------------------------------------------'])
-    writer.writerow(['# Powered by: SanielSoft (Saniel Software Services Pvt Ltd)'])
-    writer.writerow(['# Spinzone Laundry Management Portal · All Rights Reserved'])
-    writer.writerow(['# -------------------------------------------------------------'])
+    # --- Bottom Footer ---
+    current_row += 1  # blank row spacer
 
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
+    footer1 = ws.cell(row=current_row, column=1, value='Powered by: SanielSoft (Saniel Software Services Pvt Ltd)')
+    footer1.font = footer_font
+    footer1.alignment = Alignment(horizontal='center', vertical='center')
+    current_row += 1
+
+    ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
+    footer2 = ws.cell(row=current_row, column=1, value='Spinzone Laundry Management Portal · All Rights Reserved')
+    footer2.font = footer_font
+    footer2.alignment = Alignment(horizontal='center', vertical='center')
+    current_row += 2  # space before bottom logo
+
+    # --- Full Logo at Bottom ---
+    if full_logo_path and os.path.exists(full_logo_path):
+        try:
+            bottom_logo = XlImage(full_logo_path)
+            bottom_logo.width = 200
+            bottom_logo.height = 41
+            # Center the logo roughly across the columns
+            ws.add_image(bottom_logo, f'D{current_row}')
+        except Exception:
+            pass
+
+    # Save to buffer and return response
+    xls_buffer = io.BytesIO()
+    wb.save(xls_buffer)
+    xls_bytes = xls_buffer.getvalue()
+    xls_buffer.close()
+
+    response = HttpResponse(
+        xls_bytes,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="laundromat_sessions_report_{filename_suffix}.xlsx"'
     return response
 
 
@@ -429,8 +544,8 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
         'RepTitle',
         parent=styles['Heading1'],
         fontName='Helvetica-Bold',
-        fontSize=20,
-        leading=24,
+        fontSize=16,
+        leading=20,
         textColor=colors.HexColor('#0B1A44')
     )
     sub_style = ParagraphStyle(
@@ -469,7 +584,8 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
     elements = []
 
     # Title & Subtitle (SanielSoft Branding)
-    elements.append(Paragraph("Spinzone | SanielSoft", title_style))
+    # "Spinzone" stays at title size; "| SanielSoft" matches subtitle size (11pt)
+    elements.append(Paragraph("Spinzone <font size='11'>| SanielSoft</font>", title_style))
     elements.append(Paragraph("Official Laundry Session & Machine Usage Report", sub_style))
     
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')
