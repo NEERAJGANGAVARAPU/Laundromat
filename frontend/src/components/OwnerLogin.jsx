@@ -79,7 +79,7 @@ export default function OwnerLogin({ onLogin }) {
                 />
               </svg>
             </div>
-            <span className="brand-title">Spinzone</span>
+            <span className="brand-title">SanielSoft ai</span>
           </Link>
         </div>
 
@@ -130,7 +130,7 @@ export default function OwnerLogin({ onLogin }) {
         </div>
 
         <div className="login-left-footer">
-          <span>SPINZONE</span>
+          <span>SANIELSOFT AI</span>
           <div className="powered-by-brand-mini">
             <span className="powered-by-text-light">Powered by:</span>
             <img src="/sanielsoft_full_logo.png" alt="SanielSoft" className="sanielsoft-logo-img-sm" />

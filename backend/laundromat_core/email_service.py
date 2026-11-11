@@ -56,7 +56,7 @@ def send_cycle_completed_email(session, already_claimed=False):
 
     if is_dryer:
         machine_label = f"Dryer {machine_code}"
-        subject = f"✨ Your laundry on Dryer {machine_code} is dry & ready! — Spinzone"
+        subject = f"✨ Your laundry on Dryer {machine_code} is dry & ready! — SanielSoft ai"
         headline = "Dry & Fresh. Ready to Go."
         subheadline = f"{customer_name}, your drying cycle is complete!"
         action_text = f"Your clothes in <strong>Dryer {machine_code}</strong> are warm, dry, and ready for pickup. Please collect your laundry promptly so the machine is available for other customers."
@@ -65,7 +65,7 @@ def send_cycle_completed_email(session, already_claimed=False):
         next_step_tip = "🧺 Grab your laundry bag and collect your clothes from machine " + machine_code + "."
     else:
         machine_label = f"Washer {machine_code}"
-        subject = f"🧺 Your wash on Washer {machine_code} is finished! — Spinzone"
+        subject = f"🧺 Your wash on Washer {machine_code} is finished! — SanielSoft ai"
         headline = "Clean & Fresh. Ready to Unload."
         subheadline = f"{customer_name}, your wash cycle is complete!"
         action_text = f"Your wash in <strong>Washer {machine_code}</strong> has finished. Please unload your clothes promptly to transfer them to a dryer or head home."
@@ -88,7 +88,7 @@ SESSION SUMMARY:
 - Status: Completed
 - Next Step: {next_step_tip}
 
-Thank you for washing with Spinzone Laundromat!
+Thank you for washing with SanielSoft ai Laundromat!
 A little less waiting. A little more you.
 """.strip()
 
@@ -221,7 +221,7 @@ A little less waiting. A little more you.
 <body>
   <div class="email-container">
     <div class="header">
-      <div class="brand-pill">Spinzone Laundromat</div>
+      <div class="brand-pill">SanielSoft ai</div>
       <h1 class="brand-title">Cycle Complete</h1>
     </div>
 
@@ -255,9 +255,9 @@ A little less waiting. A little more you.
     </div>
 
     <div class="footer">
-      <p style="margin: 0 0 6px 0;"><strong>Spinzone Laundromat</strong></p>
+      <p style="margin: 0 0 6px 0;"><strong>SanielSoft ai</strong></p>
       <p style="margin: 0 0 8px 0;">A little less waiting. A little more you.</p>
-      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Powered by <strong>SanielSoft</strong></p>
+      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Laundromat management application</p>
     </div>
   </div>
 </body>
@@ -266,7 +266,7 @@ A little less waiting. A little more you.
 
     # 6. Send email via Django's mail system
     try:
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Spinzone <noreply@spinzone.local>')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'SanielSoft ai <noreply@sanielsoft.local>')
         send_mail(
             subject=subject,
             message=text_message,
@@ -357,7 +357,7 @@ def send_cycle_reminder_email(session, already_claimed=False):
 
     if is_dryer:
         machine_label = f"Dryer {machine_code}"
-        subject = f"⏰ ~5 mins left on Dryer {machine_code}! — Spinzone"
+        subject = f"⏰ ~5 mins left on Dryer {machine_code}! — SanielSoft ai"
         headline = "Almost Dry. 5 Minutes Left."
         subheadline = f"{customer_name}, your drying cycle is in its final 5 minutes!"
         action_text = f"Your clothes in <strong>Dryer {machine_code}</strong> will be done in approximately 5 minutes. Time to head over with your laundry basket so you can collect them warm and wrinkle-free!"
@@ -366,7 +366,7 @@ def send_cycle_reminder_email(session, already_claimed=False):
         next_step_tip = f"🧺 Grab your basket and head back to Dryer {machine_code} to collect your fresh, warm laundry right on time."
     else:
         machine_label = f"Washer {machine_code}"
-        subject = f"⏰ ~5 mins left on Washer {machine_code}! — Spinzone"
+        subject = f"⏰ ~5 mins left on Washer {machine_code}! — SanielSoft ai"
         headline = "Almost Done. 5 Minutes Left."
         subheadline = f"{customer_name}, your washing cycle is in its final 5 minutes!"
         action_text = f"Your clothes in <strong>Washer {machine_code}</strong> will be ready in approximately 5 minutes. Please head back to collect your clean clothes promptly or transfer them to a dryer."
@@ -376,7 +376,7 @@ def send_cycle_reminder_email(session, already_claimed=False):
 
     # 4. Plain text fallback version
     text_message = f"""
-Spinzone Laundromat — 5-Minute Heads-Up
+SanielSoft ai — 5-Minute Heads-Up
 ---------------------------------------
 Hello {customer_name},
 
@@ -388,11 +388,11 @@ Status: Almost Done (~5 mins left)
 
 Tip: {next_step_tip}
 
-Thank you for choosing Spinzone Laundromat!
+Thank you for choosing SanielSoft ai Laundromat!
 Powered by SanielSoft
 """.strip()
 
-    # 5. HTML version matching Spinzone design
+    # 5. HTML version matching SanielSoft ai design
     html_message = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -518,7 +518,7 @@ Powered by SanielSoft
 <body>
   <div class="email-container">
     <div class="header">
-      <div class="brand-pill">Spinzone Laundromat</div>
+      <div class="brand-pill">SanielSoft ai</div>
       <h1>{headline}</h1>
       <p>{subheadline}</p>
     </div>
@@ -553,9 +553,9 @@ Powered by SanielSoft
     </div>
 
     <div class="footer">
-      <p style="margin: 0 0 6px 0;"><strong>Spinzone Laundromat</strong></p>
+      <p style="margin: 0 0 6px 0;"><strong>SanielSoft ai</strong></p>
       <p style="margin: 0 0 8px 0;">A little less waiting. A little more you.</p>
-      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Powered by <strong>SanielSoft</strong></p>
+      <p style="margin: 0; font-size: 11px; color: #94A3B8;">Laundromat management application</p>
     </div>
   </div>
 </body>
@@ -564,7 +564,7 @@ Powered by SanielSoft
 
     # 6. Send email via Django's mail system
     try:
-        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'Spinzone <noreply@spinzone.local>')
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'SanielSoft ai <noreply@sanielsoft.local>')
         send_mail(
             subject=subject,
             message=text_message,

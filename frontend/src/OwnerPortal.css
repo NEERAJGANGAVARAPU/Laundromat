@@ -1,6 +1,33 @@
 /* ============================================================
-   SPINZONE — OWNER PORTAL STYLES (LOGIN & DASHBOARD)
+   SANIELSOFT AI — OWNER PORTAL STYLES (LOGIN & DASHBOARD)
    ============================================================ */
+
+/* ── Global smooth rendering — eliminates jank on mobile ── */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dashboard-layout,
+.dashboard-main,
+.owner-sidebar {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Force GPU compositing on the sidebar so slide-in is buttery */
+.owner-sidebar {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Momentum scrolling on the main content area and any overflow containers */
+.dashboard-main,
+.sessions-table-scroll-container,
+.sessions-report-scroll,
+.sidebar-nav {
+  -webkit-overflow-scrolling: touch;
+}
 
 /* ------------------------------------------------------------
    1. OWNER LOGIN (SPLIT SCREEN - IMAGE 1)
@@ -1544,6 +1571,40 @@
   border-bottom: none;
 }
 
+/* ── Customer Sessions Database scroll — capped at ~15 rows then scrollable ── */
+.sessions-report-scroll {
+  max-height: 760px; /* roughly 15 rows × ~50px per row */
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f8fafc;
+}
+.sessions-report-scroll::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.sessions-report-scroll::-webkit-scrollbar-track {
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 8px;
+}
+.sessions-report-scroll::-webkit-scrollbar-thumb {
+  background: rgba(203, 213, 225, 0.85);
+  border-radius: 8px;
+}
+.sessions-report-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.95);
+}
+.sessions-report-scroll .sessions-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(248, 250, 252, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 5;
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 -1px 0 rgba(226, 232, 240, 0.6);
+}
+
 .scroll-records-badge {
   font-size: 11.5px;
   font-weight: 700;
@@ -2162,7 +2223,7 @@
     width: 265px;
     z-index: 100;
     transform: translateX(-100%);
-    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     overflow-y: auto;
     box-shadow: 6px 0 32px rgba(0, 0, 0, 0.28);
     padding: 20px 14px;
@@ -2215,7 +2276,7 @@
     min-width: 0;
   }
 
-  /* ── Mobile Brand Header (Spinzone name & logo above Overview) ── */
+  /* ── Mobile Brand Header (SanielSoft ai name & logo above Overview) ── */
   .mobile-brand-bar {
     display: flex;
     align-items: center;

@@ -922,7 +922,7 @@ export default function OwnerDashboard() {
               </svg>
             </div>
             <div className="brand-text-col">
-              <span className="sidebar-brand-title">Spinzone</span>
+              <span className="sidebar-brand-title">SanielSoft ai</span>
               <span className="sidebar-brand-sub">OWNER PORTAL</span>
             </div>
           </div>
@@ -939,14 +939,6 @@ export default function OwnerDashboard() {
           >
             <LayoutDashboard size={18} />
             <span>Overview</span>
-          </button>
-
-          <button
-            className={`nav-item-btn ${activeNav === 'reports' ? 'active' : ''}`}
-            onClick={() => { setActiveNav('reports'); setSidebarOpen(false); }}
-          >
-            <BarChart3 size={18} />
-            <span>Reports</span>
           </button>
 
           <button
@@ -997,6 +989,14 @@ export default function OwnerDashboard() {
           </button>
 
           <button
+            className={`nav-item-btn ${activeNav === 'reports' ? 'active' : ''}`}
+            onClick={() => { setActiveNav('reports'); setSidebarOpen(false); }}
+          >
+            <BarChart3 size={18} />
+            <span>Reports</span>
+          </button>
+
+          <button
             className={`nav-item-btn ${activeNav === 'activity' ? 'active' : ''}`}
             onClick={() => { setActiveNav('activity'); setSidebarOpen(false); }}
           >
@@ -1038,7 +1038,7 @@ export default function OwnerDashboard() {
 
       {/* ================= MAIN DASHBOARD CONTENT ================= */}
       <main className="dashboard-main">
-        {/* Mobile Brand Header — Spinzone Name & Logo above Owner / Overview (mobile only) */}
+        {/* Mobile Brand Header — SanielSoft ai Name & Logo above Owner / Overview (mobile only) */}
         <div className="mobile-brand-bar">
           <div className="mobile-brand-left">
             <div className="brand-icon mobile-brand-icon">
@@ -1059,7 +1059,7 @@ export default function OwnerDashboard() {
               </svg>
             </div>
             <div className="brand-text-col">
-              <span className="mobile-brand-title">Spinzone</span>
+              <span className="mobile-brand-title">SanielSoft ai</span>
               <span className="mobile-brand-sub">OWNER PORTAL</span>
             </div>
           </div>
@@ -1079,10 +1079,10 @@ export default function OwnerDashboard() {
               {activeNav === 'reports'
                 ? 'Reports & Analytics'
                 : activeNav === 'settings' || activeNav === 'security'
-                ? 'Access Settings'
-                : activeNav === 'activity'
-                ? 'Usage Analytics'
-                : 'Overview'}
+                  ? 'Access Settings'
+                  : activeNav === 'activity'
+                    ? 'Usage Analytics'
+                    : 'Overview'}
             </span>
           </div>
 
@@ -1310,7 +1310,7 @@ export default function OwnerDashboard() {
               <div>
                 <h1 className="dash-heading">The day, at a glance.</h1>
                 <p className="dash-subheading">
-                  Main Street overview - {totalMachines} machines across wash and dry.
+                  Store overview - {totalMachines} machines across wash and dry.
                 </p>
               </div>
 
@@ -1773,7 +1773,7 @@ export default function OwnerDashboard() {
 
                   <a
                     href={qrDataUrl}
-                    download={`spinzone-${selectedMachineObj?.code}.png`}
+                    download={`sanielsoft-ai-${selectedMachineObj?.code}.png`}
                     className="qr-action-btn secondary-qr-btn"
                   >
                     <Download size={16} />
@@ -2085,7 +2085,7 @@ export default function OwnerDashboard() {
                 </div>
               </div>
 
-              <div className="table-wrapper">
+              <div className="sessions-table-scroll-container sessions-report-scroll">
                 <table className="sessions-table">
                   <thead>
                     <tr>
@@ -2225,11 +2225,11 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* Global Dashboard Disclaimer & Powered by SanielSoft */}
+        {/* Global Dashboard Footer */}
         <footer className="dash-footer">
           <div className="dash-footer-content">
             <span className="dash-footer-copy">
-              Spinzone Owner Portal · All rights reserved
+              Laundromat management application
             </span>
             <div className="dash-footer-powered">
               <span className="powered-by-text">Powered by:</span>

@@ -102,7 +102,7 @@ def draw_page_decorations(canvas, doc):
     # Left: Store & Report label
     canvas.setFont('Helvetica', 8)
     canvas.setFillColor(colors.HexColor('#64748B'))
-    canvas.drawString(36, 25, "Spinzone Laundromat · Official Session Usage Report")
+    canvas.drawString(36, 25, "SanielSoft ai · Official Session Usage Report")
 
     # Center: Page Number
     page_num = canvas.getPageNumber()
@@ -352,29 +352,10 @@ def export_sessions_xls(date_str=None, start_date=None, end_date=None, status_fi
 
     current_row = 1
 
-    # --- Logo Header ---
-    full_logo_path = get_full_logo_image_path()
-    if full_logo_path and os.path.exists(full_logo_path):
-        try:
-            logo_img = XlImage(full_logo_path)
-            logo_img.width = 200
-            logo_img.height = 41
-            ws.add_image(logo_img, 'A1')
-            current_row = 4  # Leave space for logo
-        except Exception:
-            current_row = 1
-
     # --- Title & Meta ---
-    # "Spinzone" remains large (16pt); "| SanielSoft" is sized to match the subtitle below (11pt)
     ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
-    spinzone_inline_font = InlineFont(rFont='Calibri', sz=16.0, b=True, color=brand_navy)
-    saniel_inline_font = InlineFont(rFont='Calibri', sz=11.0, b=True, color=brand_navy)
-    title_rich = CellRichText(
-        TextBlock(spinzone_inline_font, 'Spinzone '),
-        TextBlock(saniel_inline_font, '| SanielSoft')
-    )
-    title_cell = ws.cell(row=current_row, column=1)
-    title_cell.value = title_rich
+    title_cell = ws.cell(row=current_row, column=1, value='SanielSoft ai')
+    title_cell.font = title_font
     title_cell.alignment = left_align
     current_row += 1
 
@@ -444,12 +425,13 @@ def export_sessions_xls(date_str=None, start_date=None, end_date=None, status_fi
     current_row += 1
 
     ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=10)
-    footer2 = ws.cell(row=current_row, column=1, value='Spinzone Laundry Management Portal · All Rights Reserved')
+    footer2 = ws.cell(row=current_row, column=1, value='Laundromat management application · All Rights Reserved')
     footer2.font = footer_font
     footer2.alignment = Alignment(horizontal='center', vertical='center')
     current_row += 2  # space before bottom logo
 
     # --- Full Logo at Bottom ---
+    full_logo_path = get_full_logo_image_path()
     if full_logo_path and os.path.exists(full_logo_path):
         try:
             bottom_logo = XlImage(full_logo_path)
@@ -584,8 +566,7 @@ def export_sessions_pdf(date_str=None, start_date=None, end_date=None, status_fi
     elements = []
 
     # Title & Subtitle (SanielSoft Branding)
-    # "Spinzone" stays at title size; "| SanielSoft" matches subtitle size (11pt)
-    elements.append(Paragraph("Spinzone <font size='11'>| SanielSoft</font>", title_style))
+    elements.append(Paragraph("SanielSoft ai", title_style))
     elements.append(Paragraph("Official Laundry Session & Machine Usage Report", sub_style))
     
     current_time_str = format_dt(timezone.now(), '%Y-%m-%d %I:%M %p')

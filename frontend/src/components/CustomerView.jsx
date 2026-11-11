@@ -587,7 +587,7 @@ export default function CustomerView() {
                 />
               </svg>
             </div>
-            <h1 className="brand-title">Spinzone</h1>
+            <h1 className="brand-title">SanielSoft ai</h1>
           </div>
         </header>
 
