@@ -44,6 +44,13 @@ import {
   X as XIcon
 } from 'lucide-react';
 import ActivityAnalyticsView from './owner/ActivityAnalyticsView';
+import {
+  Skeleton,
+  SkeletonKPIGrid,
+  SkeletonMachineGrid,
+  SkeletonTableRows,
+  SkeletonReportKPIGrid
+} from './common/Skeleton';
 import '../OwnerPortal.css';
 
 // Initial default machines matching Image 2
@@ -64,6 +71,47 @@ export default function OwnerDashboard() {
   // Navigation tab in sidebar
   const [activeNav, setActiveNav] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Skeleton loading states
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isReportLoading, setIsReportLoading] = useState(false);
+
+  // Online / Low Bandwidth / Offline Connectivity State
+  // Values: 'online' (green), 'slow' (orange), 'offline' (red)
+  const [networkStatus, setNetworkStatus] = useState(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return 'offline';
+    return 'online';
+  });
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [lastLatencyMs, setLastLatencyMs] = useState(null);
+
+  // Helper to determine network quality based on measured round-trip time and Network Information API
+  const updateNetworkQuality = (latencyMs) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setNetworkStatus('offline');
+      return;
+    }
+
+    if (latencyMs !== undefined && latencyMs !== null) {
+      setLastLatencyMs(latencyMs);
+    }
+
+    // Check navigator.connection if supported (Chrome, Edge, Android)
+    const conn = typeof navigator !== 'undefined' && (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+    const isConnSlow = conn && (
+      conn.effectiveType === 'slow-2g' ||
+      conn.effectiveType === '2g' ||
+      (conn.downlink && conn.downlink < 1.0) ||
+      (conn.rtt && conn.rtt >= 600)
+    );
+
+    // Latency >= 1200ms or browser reported slow connection
+    if (isConnSlow || (latencyMs && latencyMs >= 1200)) {
+      setNetworkStatus('slow');
+    } else {
+      setNetworkStatus('online');
+    }
+  };
 
   // Machines state (fetched live from Django API)
   const [machines, setMachines] = useState([]);
@@ -106,6 +154,19 @@ export default function OwnerDashboard() {
     last_login: null
   });
 
+  // Google Recovery Email & OTP Auth States
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [isRecoveryEmailVerified, setIsRecoveryEmailVerified] = useState(true);
+  const [isGoogleVerifyModalOpen, setIsGoogleVerifyModalOpen] = useState(false);
+  const [googleEmailInput, setGoogleEmailInput] = useState('');
+  const [googleVerifyLoading, setGoogleVerifyLoading] = useState(false);
+  const [googleVerifyError, setGoogleVerifyError] = useState('');
+  const [googleVerifySuccess, setGoogleVerifySuccess] = useState('');
+
+  // Post-OTP Login "Wanna change your password?" Prompt State
+  const [showChangePasswordPrompt, setShowChangePasswordPrompt] = useState(false);
+  const [isOtpResetFlow, setIsOtpResetFlow] = useState(false);
+
   const fetchAuthStatus = async () => {
     try {
       let res = await fetch('/api/auth/status/').catch(() => null);
@@ -119,6 +180,96 @@ export default function OwnerDashboard() {
     } catch (e) {
       console.warn('Could not fetch auth status:', e);
     }
+  };
+
+  const fetchRecoveryEmail = async () => {
+    try {
+      let res = await fetch('/api/auth/recovery-email/').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/auth/recovery-email/`);
+      }
+      if (res && res.ok) {
+        const data = await res.json();
+        const email = data.email || '';
+        const verified = Boolean(data.verified);
+        setRecoveryEmail(email);
+        setIsRecoveryEmailVerified(verified);
+        if (email) {
+          setGoogleEmailInput(email);
+        }
+        // One-time prompt: only open if recovery email has not yet been set/verified
+        if (!verified || !email) {
+          setIsGoogleVerifyModalOpen(true);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch recovery email status:', e);
+    }
+  };
+
+  const handleSaveGoogleEmail = async (e) => {
+    if (e) e.preventDefault();
+    setGoogleVerifyError('');
+    setGoogleVerifySuccess('');
+    const emailToSave = googleEmailInput.trim().toLowerCase();
+    if (!emailToSave || !emailToSave.includes('@')) {
+      setGoogleVerifyError('Please enter a valid Google email address.');
+      return;
+    }
+    setGoogleVerifyLoading(true);
+    try {
+      let res = await fetch('/api/auth/recovery-email/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToSave })
+      }).catch(() => null);
+
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/auth/recovery-email/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailToSave })
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save Google recovery email.');
+      }
+
+      setRecoveryEmail(data.email || emailToSave);
+      setIsRecoveryEmailVerified(true);
+      setGoogleVerifyLoading(false);
+      setIsGoogleVerifyModalOpen(false);
+      setGoogleVerifySuccess('Google recovery email verified and stored securely.');
+    } catch (err) {
+      setGoogleVerifyLoading(false);
+      setGoogleVerifyError(err.message || 'Error saving Google email.');
+    }
+  };
+
+  const clearOtpLoginFlag = () => {
+    try {
+      const auth = JSON.parse(localStorage.getItem('spin_owner_auth') || '{}');
+      auth.logged_in_via_otp = false;
+      localStorage.setItem('spin_owner_auth', JSON.stringify(auth));
+      sessionStorage.removeItem('spin_owner_logged_in_via_otp');
+    } catch (e) {
+      console.warn('Could not clear OTP flag:', e);
+    }
+  };
+
+  const handleOtpPromptLetsGo = () => {
+    clearOtpLoginFlag();
+    setShowChangePasswordPrompt(false);
+    setIsOtpResetFlow(true);
+    setActiveNav('security');
+  };
+
+  const handleOtpPromptNotNow = () => {
+    clearOtpLoginFlag();
+    setShowChangePasswordPrompt(false);
+    setIsOtpResetFlow(false);
   };
 
   // Real-time ticker: updates every second so remaining countdown ticks live
@@ -200,6 +351,7 @@ export default function OwnerDashboard() {
 
   // Fetch Report Analytics for date range
   const fetchReportAnalytics = async (sDate = reportStartDate, eDate = reportEndDate) => {
+    setIsReportLoading(true);
     try {
       const params = new URLSearchParams();
       if (sDate) params.append('start_date', sDate);
@@ -210,12 +362,14 @@ export default function OwnerDashboard() {
       if (!res || !res.ok) {
         res = await fetch(`http://${apiHost}:8000/api/reports/analytics/?${params.toString()}`);
       }
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
         setReportAnalytics(data);
       }
     } catch (e) {
       console.warn('Analytics fetch error:', e);
+    } finally {
+      setIsReportLoading(false);
     }
   };
 
@@ -418,11 +572,13 @@ export default function OwnerDashboard() {
 
   // Fetch live machines from Django backend
   const fetchBackendMachines = async () => {
+    const t0 = performance.now();
     try {
       let res = await fetch('/api/machines/').catch(() => null);
       if (!res || !res.ok) {
         res = await fetch(`http://${apiHost}:8000/api/machines/`);
       }
+      const latency = Math.round(performance.now() - t0);
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -444,19 +600,23 @@ export default function OwnerDashboard() {
         if (mapped.length > 0 && !selectedQrMachine) {
           setSelectedQrMachine(mapped[0].code);
         }
+        updateNetworkQuality(latency);
       }
     } catch (err) {
       console.warn('Could not load machines from Django:', err);
+      setNetworkStatus('offline');
     }
   };
 
   // Fetch live sessions from Django backend
   const fetchBackendSessions = async () => {
+    const t0 = performance.now();
     try {
       let res = await fetch('/api/sessions/').catch(() => null);
       if (!res || !res.ok) {
         res = await fetch(`http://${apiHost}:8000/api/sessions/`);
       }
+      const latency = Math.round(performance.now() - t0);
       if (!res.ok) throw new Error('API failed');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -503,17 +663,94 @@ export default function OwnerDashboard() {
             revealed: !!revealedMap[item.id]
           }));
         });
+        updateNetworkQuality(latency);
       }
     } catch (err) {
       console.warn('Could not load sessions from Django:', err);
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setNetworkStatus('offline');
+      }
+    }
+  };
+
+  // Browser Online / Offline & Network Information Listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      fetchBackendMachines();
+      fetchBackendSessions();
+    };
+    const handleOffline = () => {
+      setNetworkStatus('offline');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const conn = typeof navigator !== 'undefined' && (navigator.connection || navigator.mozConnection || navigator.webkitConnection);
+    const handleConnChange = () => {
+      updateNetworkQuality(lastLatencyMs);
+    };
+    if (conn && conn.addEventListener) {
+      conn.addEventListener('change', handleConnChange);
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (conn && conn.removeEventListener) {
+        conn.removeEventListener('change', handleConnChange);
+      }
+    };
+  }, [apiHost, lastLatencyMs]);
+
+  // Manual Check / Reconnect trigger on "Live portal" / "Low internet" / "Offline" toggle
+  const handleToggleOrCheckConnection = async () => {
+    setIsCheckingConnection(true);
+    const t0 = performance.now();
+    try {
+      let res = await fetch('/api/machines/').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch(`http://${apiHost}:8000/api/machines/`);
+      }
+      const latency = Math.round(performance.now() - t0);
+      if (res && res.ok) {
+        updateNetworkQuality(latency);
+        await Promise.all([
+          fetchBackendMachines(),
+          fetchBackendSessions()
+        ]);
+      } else {
+        setNetworkStatus('offline');
+      }
+    } catch (e) {
+      setNetworkStatus('offline');
+    } finally {
+      setIsCheckingConnection(false);
     }
   };
 
   // Poll live data on mount
   useEffect(() => {
-    fetchBackendMachines();
-    fetchBackendSessions();
-    fetchAuthStatus();
+    Promise.all([
+      fetchBackendMachines(),
+      fetchBackendSessions(),
+      fetchAuthStatus(),
+      fetchRecoveryEmail()
+    ]).finally(() => {
+      setIsInitialLoading(false);
+    });
+
+    // Check if owner logged in via OTP
+    try {
+      const auth = JSON.parse(localStorage.getItem('spin_owner_auth') || '{}');
+      const isOtp = auth.logged_in_via_otp === true || sessionStorage.getItem('spin_owner_logged_in_via_otp') === 'true';
+      if (isOtp) {
+        setShowChangePasswordPrompt(true);
+      }
+    } catch (e) {
+      console.warn('Could not read auth flag:', e);
+    }
+
     const interval = setInterval(() => {
       fetchBackendMachines();
       fetchBackendSessions();
@@ -659,6 +896,14 @@ export default function OwnerDashboard() {
     e.preventDefault();
     setSettingsStatus(null);
 
+    if (!isOtpResetFlow && !currentPasswordInput) {
+      setSettingsStatus({
+        type: 'error',
+        message: 'Current password is required.'
+      });
+      return;
+    }
+
     if (newPasswordInput.length < 6) {
       setSettingsStatus({
         type: 'error',
@@ -676,25 +921,26 @@ export default function OwnerDashboard() {
     }
 
     try {
+      const payload = {
+        username: authStatus.username || 'admin',
+        new_password: newPasswordInput,
+        skip_current_password: isOtpResetFlow
+      };
+      if (!isOtpResetFlow) {
+        payload.current_password = currentPasswordInput;
+      }
+
       let res = await fetch('/api/auth/change-password/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: authStatus.username || 'admin',
-          current_password: currentPasswordInput,
-          new_password: newPasswordInput
-        })
+        body: JSON.stringify(payload)
       }).catch(() => null);
 
       if (!res || !res.ok) {
         res = await fetch(`http://${apiHost}:8000/api/auth/change-password/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: authStatus.username || 'admin',
-            current_password: currentPasswordInput,
-            new_password: newPasswordInput
-          })
+          body: JSON.stringify(payload)
         });
       }
 
@@ -710,6 +956,7 @@ export default function OwnerDashboard() {
       setCurrentPasswordInput('');
       setNewPasswordInput('');
       setConfirmPasswordInput('');
+      setIsOtpResetFlow(false);
 
       setSettingsStatus({
         type: 'success',
@@ -892,8 +1139,51 @@ export default function OwnerDashboard() {
 
   const selectedMachineObj = machines.find((m) => m.code === selectedQrMachine) || machines[0];
 
+  const renderConnectionPill = (extraClassName = '') => (
+    <button
+      type="button"
+      className={`demo-pill ${
+        networkStatus === 'online'
+          ? 'pill-live'
+          : networkStatus === 'slow'
+            ? 'pill-slow'
+            : 'pill-offline'
+      } ${extraClassName}`.trim()}
+      onClick={handleToggleOrCheckConnection}
+      title={
+        isCheckingConnection
+          ? 'Testing server connection speed...'
+          : networkStatus === 'online'
+            ? `Connected · Live portal synced (${lastLatencyMs ? `${lastLatencyMs}ms · ` : ''}Click to refresh)`
+            : networkStatus === 'slow'
+              ? `Low internet / slow connection (${lastLatencyMs ? `${lastLatencyMs}ms · ` : ''}Click to re-test)`
+              : 'Offline · Unable to reach server (Click to reconnect)'
+      }
+      aria-live="polite"
+    >
+      <span
+        className={
+          networkStatus === 'online'
+            ? 'live-dot-pulse'
+            : networkStatus === 'slow'
+              ? 'slow-dot-pulse'
+              : 'offline-dot-pulse'
+        }
+      />
+      <span>
+        {isCheckingConnection
+          ? 'Testing...'
+          : networkStatus === 'online'
+            ? 'Live portal'
+            : networkStatus === 'slow'
+              ? 'Low internet'
+              : 'Offline'}
+      </span>
+    </button>
+  );
+
   return (
-    <div className="dashboard-layout">
+    <div className={`dashboard-layout ${showChangePasswordPrompt ? 'blurred-for-prompt' : ''}`}>
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
@@ -1063,6 +1353,9 @@ export default function OwnerDashboard() {
               <span className="mobile-brand-sub">OWNER PORTAL</span>
             </div>
           </div>
+          <div className="mobile-brand-right">
+            {renderConnectionPill('mobile-brand-pill')}
+          </div>
         </div>
 
         {/* Top Header Bar */}
@@ -1086,11 +1379,8 @@ export default function OwnerDashboard() {
             </span>
           </div>
 
-          <div className="topbar-right">
-            <span className="demo-pill">
-              <span className="live-dot-pulse"></span>
-              Live portal
-            </span>
+          <div className="topbar-right desktop-topbar-right">
+            {renderConnectionPill('desktop-topbar-pill')}
             <span className="current-date-text">
               {new Date().toLocaleDateString('en-US', {
                 weekday: 'short',
@@ -1156,26 +1446,37 @@ export default function OwnerDashboard() {
                 </div>
 
                 <form onSubmit={handleChangePassword} className="settings-form">
-                  <div className="settings-field">
-                    <label className="settings-label">Current Password</label>
-                    <div className="settings-input-wrapper">
-                      <Lock size={16} className="settings-field-icon" />
-                      <input
-                        type={showCurrentPass ? 'text' : 'password'}
-                        placeholder="Enter current password"
-                        value={currentPasswordInput}
-                        onChange={(e) => setCurrentPasswordInput(e.target.value)}
-                        required
-                      />
-                      <button
-                        type="button"
-                        className="settings-eye-btn"
-                        onClick={() => setShowCurrentPass(!showCurrentPass)}
-                      >
-                        {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
+                  {isOtpResetFlow && (
+                    <div className="otp-reset-banner">
+                      <CheckCircle size={16} className="text-green" />
+                      <div>
+                        <strong>OTP Verified Access:</strong> You signed in via one-time recovery code. Entering your old password is not required.
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {!isOtpResetFlow && (
+                    <div className="settings-field">
+                      <label className="settings-label">Current Password</label>
+                      <div className="settings-input-wrapper">
+                        <Lock size={16} className="settings-field-icon" />
+                        <input
+                          type={showCurrentPass ? 'text' : 'password'}
+                          placeholder="Enter current password"
+                          value={currentPasswordInput}
+                          onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                          required
+                        />
+                        <button
+                          type="button"
+                          className="settings-eye-btn"
+                          onClick={() => setShowCurrentPass(!showCurrentPass)}
+                        >
+                          {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="settings-field">
                     <label className="settings-label">New Password</label>
@@ -1297,6 +1598,48 @@ export default function OwnerDashboard() {
                     </div>
                   </div>
                 </div>
+
+                {/* Card 3: Google Recovery Email */}
+                <div className="settings-card">
+                  <div className="settings-card-header">
+                    <div className="settings-card-icon-title">
+                      <Mail size={20} className="card-hdr-icon text-blue" />
+                      <div>
+                        <h3 className="settings-card-title">Google Recovery Email</h3>
+                        <p className="settings-card-desc">
+                          Emergency email used to send 6-digit OTP codes if you forget your password.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="recovery-email-card-body">
+                    <div className="recovery-email-status-row">
+                      <div className="recovery-email-info">
+                        <span className="recovery-email-label">Registered Google Account</span>
+                        <span className="recovery-email-text">{recoveryEmail || 'No Google account linked'}</span>
+                      </div>
+                      <span className={`status-chip ${isRecoveryEmailVerified && recoveryEmail ? 'chip-green' : 'chip-orange'}`}>
+                        {isRecoveryEmailVerified && recoveryEmail ? '• Verified' : '• Action Required'}
+                      </span>
+                    </div>
+
+                    <div style={{ marginTop: '16px' }}>
+                      <button
+                        type="button"
+                        className="btn-update-email"
+                        onClick={() => {
+                          setGoogleEmailInput(recoveryEmail || '');
+                          setGoogleVerifyError('');
+                          setIsGoogleVerifyModalOpen(true);
+                        }}
+                      >
+                        <Edit3 size={15} />
+                        <span>{recoveryEmail ? 'Update Recovery Google Email' : 'Link Google Email'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1321,90 +1664,94 @@ export default function OwnerDashboard() {
             </div>
 
             {/* ================= 4 METRICS KPI CARDS ================= */}
-            <div className="kpi-grid">
-              {/* Card 1: Available Now */}
-              <div className={`kpi-card ${availableCount > 0 ? 'card-available' : 'card-available-empty'}`}>
-                <div className="kpi-avail-top">
-                  <span className="kpi-label">Available now</span>
-                  <span className="kpi-avail-badge">
-                    {availableCount > 0 ? 'Ready' : 'All Busy'}
+            {isInitialLoading ? (
+              <SkeletonKPIGrid count={4} />
+            ) : (
+              <div className="kpi-grid">
+                {/* Card 1: Available Now */}
+                <div className={`kpi-card ${availableCount > 0 ? 'card-available' : 'card-available-empty'}`}>
+                  <div className="kpi-avail-top">
+                    <span className="kpi-label">Available now</span>
+                    <span className="kpi-avail-badge">
+                      {availableCount > 0 ? 'Ready' : 'All Busy'}
+                    </span>
+                  </div>
+                  <div className="kpi-value-row">
+                    <span className="kpi-big-num">{availableCount}</span>
+                    <span className="kpi-total-num">/ {totalMachines} machines</span>
+                  </div>
+                  <span className="kpi-footer-text">
+                    {availableCount > 0
+                      ? `${availableWashers} washer · ${availableDryers} dryers ready`
+                      : '0 machines currently available'}
                   </span>
                 </div>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">{availableCount}</span>
-                  <span className="kpi-total-num">/ {totalMachines} machines</span>
-                </div>
-                <span className="kpi-footer-text">
-                  {availableCount > 0
-                    ? `${availableWashers} washer · ${availableDryers} dryers ready`
-                    : '0 machines currently available'}
-                </span>
-              </div>
 
-              {/* Card 2: Washer Occupancy */}
-              <div className="kpi-card">
-                <span className="kpi-label">Washer occupancy</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">{occupiedWashers}</span>
-                  <span className="kpi-total-num">/ {washers.length} occupied</span>
+                {/* Card 2: Washer Occupancy */}
+                <div className="kpi-card">
+                  <span className="kpi-label">Washer occupancy</span>
+                  <div className="kpi-value-row">
+                    <span className="kpi-big-num">{occupiedWashers}</span>
+                    <span className="kpi-total-num">/ {washers.length} occupied</span>
+                  </div>
+                  <div className="segmented-bar">
+                    {washers.length > 0 ? (
+                      washers.map((w) => (
+                        <div
+                          key={w.code}
+                          title={`${w.code}: ${w.status === 'occupied' ? 'Occupied' : w.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                          className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                            }`}
+                        />
+                      ))
+                    ) : (
+                      <div className="bar-chunk chunk-light" title="No washers configured" />
+                    )}
+                  </div>
+                  <span className="kpi-footer-text">
+                    {availableWashers} available · {maintenanceWashers} maintenance
+                  </span>
                 </div>
-                <div className="segmented-bar">
-                  {washers.length > 0 ? (
-                    washers.map((w) => (
-                      <div
-                        key={w.code}
-                        title={`${w.code}: ${w.status === 'occupied' ? 'Occupied' : w.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
-                        className={`bar-chunk ${w.status === 'occupied' ? 'chunk-blue' : w.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                          }`}
-                      />
-                    ))
-                  ) : (
-                    <div className="bar-chunk chunk-light" title="No washers configured" />
-                  )}
-                </div>
-                <span className="kpi-footer-text">
-                  {availableWashers} available · {maintenanceWashers} maintenance
-                </span>
-              </div>
 
-              {/* Card 3: Dryer Occupancy */}
-              <div className="kpi-card">
-                <span className="kpi-label">Dryer occupancy</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">{occupiedDryers}</span>
-                  <span className="kpi-total-num">/ {dryers.length} occupied</span>
+                {/* Card 3: Dryer Occupancy */}
+                <div className="kpi-card">
+                  <span className="kpi-label">Dryer occupancy</span>
+                  <div className="kpi-value-row">
+                    <span className="kpi-big-num">{occupiedDryers}</span>
+                    <span className="kpi-total-num">/ {dryers.length} occupied</span>
+                  </div>
+                  <div className="segmented-bar">
+                    {dryers.length > 0 ? (
+                      dryers.map((d) => (
+                        <div
+                          key={d.code}
+                          title={`${d.code}: ${d.status === 'occupied' ? 'Occupied' : d.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
+                          className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
+                            }`}
+                        />
+                      ))
+                    ) : (
+                      <div className="bar-chunk chunk-light" title="No dryers configured" />
+                    )}
+                  </div>
+                  <span className="kpi-footer-text">
+                    {availableDryers} available · {maintenanceDryers} maintenance
+                  </span>
                 </div>
-                <div className="segmented-bar">
-                  {dryers.length > 0 ? (
-                    dryers.map((d) => (
-                      <div
-                        key={d.code}
-                        title={`${d.code}: ${d.status === 'occupied' ? 'Occupied' : d.status === 'maintenance' ? 'Maintenance' : 'Available'}`}
-                        className={`bar-chunk ${d.status === 'occupied' ? 'chunk-blue' : d.status === 'maintenance' ? 'chunk-orange' : 'chunk-light'
-                          }`}
-                      />
-                    ))
-                  ) : (
-                    <div className="bar-chunk chunk-light" title="No dryers configured" />
-                  )}
-                </div>
-                <span className="kpi-footer-text">
-                  {availableDryers} available · {maintenanceDryers} maintenance
-                </span>
-              </div>
 
-              {/* Card 4: Active Customers */}
-              <div className="kpi-card">
-                <span className="kpi-label">Active customers</span>
-                <div className="kpi-value-row">
-                  <span className="kpi-big-num">{occupiedCount}</span>
-                  <span className="kpi-total-num">sessions</span>
+                {/* Card 4: Active Customers */}
+                <div className="kpi-card">
+                  <span className="kpi-label">Active customers</span>
+                  <div className="kpi-value-row">
+                    <span className="kpi-big-num">{occupiedCount}</span>
+                    <span className="kpi-total-num">sessions</span>
+                  </div>
+                  <span className="kpi-footer-text">
+                    {occupiedWashers} washing · {occupiedDryers} drying
+                  </span>
                 </div>
-                <span className="kpi-footer-text">
-                  {occupiedWashers} washing · {occupiedDryers} drying
-                </span>
               </div>
-            </div>
+            )}
 
             {/* ================= MACHINE FLOOR SECTION ================= */}
             <section id="machines-section" className="dash-section">
@@ -1473,92 +1820,96 @@ export default function OwnerDashboard() {
               </div>
 
               {/* Machine Floor Grid */}
-              <div className="machine-cards-grid">
-                {filteredMachines.map((m) => {
-                  const timer = getMachineTimer(m);
+              {isInitialLoading ? (
+                <SkeletonMachineGrid count={8} />
+              ) : (
+                <div className="machine-cards-grid">
+                  {filteredMachines.map((m) => {
+                    const timer = getMachineTimer(m);
 
-                  return (
-                    <div key={m.code} className="machine-floor-card">
-                      <div className="floor-card-top">
-                        <div className="code-badge-wrap">
-                          <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
-                          <span className="machine-code-text">{m.code}</span>
+                    return (
+                      <div key={m.code} className="machine-floor-card">
+                        <div className="floor-card-top">
+                          <div className="code-badge-wrap">
+                            <span className="machine-icon-tag">{m.type === 'washer' ? '🧺' : '🌀'}</span>
+                            <span className="machine-code-text">{m.code}</span>
+                          </div>
+
+                          <div className="floor-card-top-right">
+                            {m.status === 'occupied' && (
+                              <span className="status-chip chip-blue">• Occupied</span>
+                            )}
+                            {m.status === 'available' && (
+                              <span className="status-chip chip-green">• Available</span>
+                            )}
+                            {m.status === 'maintenance' && (
+                              <span className="status-chip chip-orange">• Maintenance</span>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="floor-card-top-right">
+                        <div className="floor-card-body">
                           {m.status === 'occupied' && (
-                            <span className="status-chip chip-blue">• Occupied</span>
+                            <>
+                              <h4 className="floor-primary-text">{timer.label}</h4>
+                              <p className="floor-sub-text">{timer.customerName || m.customer || 'Active session'}</p>
+                            </>
                           )}
                           {m.status === 'available' && (
-                            <span className="status-chip chip-green">• Available</span>
+                            <>
+                              <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
+                              <p className="floor-sub-text">No customer assigned</p>
+                            </>
                           )}
                           {m.status === 'maintenance' && (
-                            <span className="status-chip chip-orange">• Maintenance</span>
+                            <>
+                              <h4 className="floor-primary-text text-amber">Out of service</h4>
+                              <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
+                            </>
                           )}
                         </div>
-                      </div>
 
-                      <div className="floor-card-body">
-                        {m.status === 'occupied' && (
-                          <>
-                            <h4 className="floor-primary-text">{timer.label}</h4>
-                            <p className="floor-sub-text">{timer.customerName || m.customer || 'Active session'}</p>
-                          </>
-                        )}
-                        {m.status === 'available' && (
-                          <>
-                            <h4 className="floor-primary-text text-neutral">Ready for a load</h4>
-                            <p className="floor-sub-text">No customer assigned</p>
-                          </>
-                        )}
-                        {m.status === 'maintenance' && (
-                          <>
-                            <h4 className="floor-primary-text text-amber">Out of service</h4>
-                            <p className="floor-sub-text">{m.note || 'Inspection required'}</p>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="floor-card-actions">
-                        <button
-                          type="button"
-                          className="floor-btn-action floor-btn-qr"
-                          onClick={() => {
-                            setSelectedQrMachine(m.code);
-                            const el = document.getElementById('qr-section');
-                            if (el) el.scrollIntoView({ behavior: 'smooth' });
-                          }}
-                          title={`Generate & Print QR Code for ${m.code}`}
-                        >
-                          <QrCode size={15} />
-                          <span>Generate QR</span>
-                        </button>
-
-                        <div className="floor-secondary-actions">
+                        <div className="floor-card-actions">
                           <button
                             type="button"
-                            className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
-                            onClick={() => handleToggleMaintenance(m.code)}
-                            title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                            className="floor-btn-action floor-btn-qr"
+                            onClick={() => {
+                              setSelectedQrMachine(m.code);
+                              const el = document.getElementById('qr-section');
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            title={`Generate & Print QR Code for ${m.code}`}
                           >
-                            {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
-                            <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                            <QrCode size={15} />
+                            <span>Generate QR</span>
                           </button>
 
-                          <button
-                            type="button"
-                            className="floor-btn-delete"
-                            onClick={() => handleRemoveMachine(m.code)}
-                            title={`Remove machine ${m.code}`}
-                          >
-                            <Trash2 size={15} />
-                          </button>
+                          <div className="floor-secondary-actions">
+                            <button
+                              type="button"
+                              className={`floor-btn-action floor-btn-maint ${m.status === 'maintenance' ? 'is-in-maintenance' : ''}`}
+                              onClick={() => handleToggleMaintenance(m.code)}
+                              title={m.status === 'maintenance' ? `Mark ${m.code} as Available` : `Mark ${m.code} under Maintenance`}
+                            >
+                              {m.status === 'maintenance' ? <CheckCircle size={15} /> : <Wrench size={15} />}
+                              <span>{m.status === 'maintenance' ? 'Mark Available' : 'Mark Maintenance'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              className="floor-btn-delete"
+                              onClick={() => handleRemoveMachine(m.code)}
+                              title={`Remove machine ${m.code}`}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* ================= CUSTOMER SESSIONS SECTION ================= */}
@@ -1593,94 +1944,104 @@ export default function OwnerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {customers.map((c) => (
-                      <tr key={c.id}>
-                        <td>
-                          <div className="cust-cell">
-                            <div className="cust-avatar">{c.initials}</div>
-                            <span className="cust-name">{c.name}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <div className="contact-cell">
-                            <span className="contact-email">
-                              {c.revealed ? c.realEmail : c.email}
-                            </span>
-                            <span className="contact-phone">
-                              {c.revealed ? c.realPhone : c.phone}
-                            </span>
-                            <button
-                              className="reveal-btn"
-                              onClick={() => toggleContactReveal(c.id)}
-                            >
-                              {c.revealed ? 'Hide' : 'Reveal'}
-                            </button>
-                          </div>
-                        </td>
-                        <td>
-                          <span className="machine-tag-cell">{c.machine}</span>
-                        </td>
-                        <td>
-                          <span className="service-text">{c.service}</span>
-                        </td>
-                        <td>
-                          <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
-                            • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
-                          </span>
-                        </td>
-                        <td>
-                          {c.realEmail && c.realEmail.includes('@laundromat.local') ? (
-                            <span className="notif-badge walkin" title="Walk-in customer (No email provided)">
-                              Walk-in (Skipped)
-                            </span>
-                          ) : c.status === 'cancelled' ? (
-                            <span className="notif-badge cancelled" title="Session cancelled">
-                              Cancelled
-                            </span>
-                          ) : (
-                            <div className="dual-notif-wrap">
-                              {/* 1. 5-Min Pre-Alert */}
-                              {c.reminderEmailSent ? (
-                                <span className="notif-badge reminder-sent" title={`5-min reminder sent to ${c.realEmail}`}>
-                                  <Clock size={11} /> 5-Min: Sent
-                                </span>
-                              ) : c.status === 'active' ? (
-                                <span className="notif-badge reminder-pending" title="5-min reminder will send when ~5 minutes remain">
-                                  <Clock size={11} /> 5-Min: Pending
-                                </span>
-                              ) : (
-                                <span className="notif-badge skipped" title="5-min reminder was skipped (e.g. cycle <= 5 mins or manual completion)">
-                                  <Clock size={11} /> 5-Min: Skipped
-                                </span>
-                              )}
-
-                              {/* 2. Completion Email */}
-                              {c.emailSent ? (
-                                <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
-                                  <Mail size={11} /> Finish: Sent
-                                </span>
-                              ) : c.status === 'active' ? (
-                                <span className="notif-badge active" title="Completion email scheduled upon cycle finish">
-                                  <Mail size={11} /> Finish: Scheduled
-                                </span>
-                              ) : (
-                                <span className="notif-badge pending" title="Completion email not dispatched">
-                                  <Mail size={11} /> Finish: Not Sent
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td>
-                          <button
-                            className="view-details-link"
-                            onClick={() => alert(`Customer Session for ${c.name}\nMachine: ${c.machine}\nEmail: ${c.realEmail}\nPhone: ${c.realPhone}`)}
-                          >
-                            View →
-                          </button>
+                    {isInitialLoading ? (
+                      <SkeletonTableRows rows={5} columns={7} />
+                    ) : customers.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ textAlign: 'center', padding: '36px 12px', color: '#64748b' }}>
+                          No customer sessions recorded yet.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      customers.map((c) => (
+                        <tr key={c.id}>
+                          <td>
+                            <div className="cust-cell">
+                              <div className="cust-avatar">{c.initials}</div>
+                              <span className="cust-name">{c.name}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="contact-cell">
+                              <span className="contact-email">
+                                {c.revealed ? c.realEmail : c.email}
+                              </span>
+                              <span className="contact-phone">
+                                {c.revealed ? c.realPhone : c.phone}
+                              </span>
+                              <button
+                                className="reveal-btn"
+                                onClick={() => toggleContactReveal(c.id)}
+                              >
+                                {c.revealed ? 'Hide' : 'Reveal'}
+                              </button>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="machine-tag-cell">{c.machine}</span>
+                          </td>
+                          <td>
+                            <span className="service-text">{c.service}</span>
+                          </td>
+                          <td>
+                            <span className={`status-chip ${c.status === 'completed' ? 'chip-green' : c.status === 'cancelled' ? 'chip-orange' : 'chip-blue'}`}>
+                              • {c.status === 'completed' ? 'Completed' : c.status === 'cancelled' ? 'Cancelled' : 'In progress'}
+                            </span>
+                          </td>
+                          <td>
+                            {c.realEmail && c.realEmail.includes('@laundromat.local') ? (
+                              <span className="notif-badge walkin" title="Walk-in customer (No email provided)">
+                                Walk-in (Skipped)
+                              </span>
+                            ) : c.status === 'cancelled' ? (
+                              <span className="notif-badge cancelled" title="Session cancelled">
+                                Cancelled
+                              </span>
+                            ) : (
+                              <div className="dual-notif-wrap">
+                                {/* 1. 5-Min Pre-Alert */}
+                                {c.reminderEmailSent ? (
+                                  <span className="notif-badge reminder-sent" title={`5-min reminder sent to ${c.realEmail}`}>
+                                    <Clock size={11} /> 5-Min: Sent
+                                  </span>
+                                ) : c.status === 'active' ? (
+                                  <span className="notif-badge reminder-pending" title="5-min reminder will send when ~5 minutes remain">
+                                    <Clock size={11} /> 5-Min: Pending
+                                  </span>
+                                ) : (
+                                  <span className="notif-badge skipped" title="5-min reminder was skipped (e.g. cycle <= 5 mins or manual completion)">
+                                    <Clock size={11} /> 5-Min: Skipped
+                                  </span>
+                                )}
+
+                                {/* 2. Completion Email */}
+                                {c.emailSent ? (
+                                  <span className="notif-badge sent" title={`Cycle completion email delivered to ${c.realEmail}`}>
+                                    <Mail size={11} /> Finish: Sent
+                                  </span>
+                                ) : c.status === 'active' ? (
+                                  <span className="notif-badge active" title="Completion email scheduled upon cycle finish">
+                                    <Mail size={11} /> Finish: Scheduled
+                                  </span>
+                                ) : (
+                                  <span className="notif-badge pending" title="Completion email not dispatched">
+                                    <Mail size={11} /> Finish: Not Sent
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              className="view-details-link"
+                              onClick={() => alert(`Customer Session for ${c.name}\nMachine: ${c.machine}\nEmail: ${c.realEmail}\nPhone: ${c.realPhone}`)}
+                            >
+                              View →
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1921,48 +2282,52 @@ export default function OwnerDashboard() {
             </div>
 
             {/* Period KPI Metrics Grid */}
-            <div className="reports-kpi-grid">
-              <div className="report-card">
-                <span className="report-card-label">Total Cycles</span>
-                <span className="report-card-num">{reportAnalytics.summary?.total_sessions ?? 0}</span>
-                <span className="report-card-sub">In selected date period</span>
-              </div>
+            {isReportLoading ? (
+              <SkeletonReportKPIGrid count={4} />
+            ) : (
+              <div className="reports-kpi-grid">
+                <div className="report-card">
+                  <span className="report-card-label">Total Cycles</span>
+                  <span className="report-card-num">{reportAnalytics.summary?.total_sessions ?? 0}</span>
+                  <span className="report-card-sub">In selected date period</span>
+                </div>
 
-              <div className="report-card">
-                <span className="report-card-label">Unique People Count</span>
-                <span className="report-card-num">{reportAnalytics.summary?.unique_customers ?? 0}</span>
-                <span className="report-card-sub">Individual customers tracked</span>
-              </div>
+                <div className="report-card">
+                  <span className="report-card-label">Unique People Count</span>
+                  <span className="report-card-num">{reportAnalytics.summary?.unique_customers ?? 0}</span>
+                  <span className="report-card-sub">Individual customers tracked</span>
+                </div>
 
-              <div className="report-card">
-                <span className="report-card-label">Session Outcomes</span>
-                <div className="report-outcomes-badges-wrap">
-                  <span className="outcome-badge badge-done">
-                    <span className="outcome-dot dot-green" />
-                    Done <strong>{reportAnalytics.summary?.completed_count ?? 0}</strong>
+                <div className="report-card">
+                  <span className="report-card-label">Session Outcomes</span>
+                  <div className="report-outcomes-badges-wrap">
+                    <span className="outcome-badge badge-done">
+                      <span className="outcome-dot dot-green" />
+                      Done <strong>{reportAnalytics.summary?.completed_count ?? 0}</strong>
+                    </span>
+                    <span className="outcome-badge badge-active">
+                      <span className="outcome-dot dot-blue" />
+                      Active <strong>{reportAnalytics.summary?.active_count ?? 0}</strong>
+                    </span>
+                    <span className="outcome-badge badge-cancelled">
+                      <span className="outcome-dot dot-orange" />
+                      Cancelled <strong>{reportAnalytics.summary?.cancelled_count ?? 0}</strong>
+                    </span>
+                  </div>
+                  <span className="report-card-sub">Completed vs active loads</span>
+                </div>
+
+                <div className="report-card">
+                  <span className="report-card-label">Total Time &amp; Top Machine</span>
+                  <span className="report-card-num">
+                    {reportAnalytics.summary?.total_minutes ?? 0} <span style={{ fontSize: '15px', fontWeight: 600, color: '#64748b' }}>mins</span>
                   </span>
-                  <span className="outcome-badge badge-active">
-                    <span className="outcome-dot dot-blue" />
-                    Active <strong>{reportAnalytics.summary?.active_count ?? 0}</strong>
-                  </span>
-                  <span className="outcome-badge badge-cancelled">
-                    <span className="outcome-dot dot-orange" />
-                    Cancelled <strong>{reportAnalytics.summary?.cancelled_count ?? 0}</strong>
+                  <span className="report-card-sub">
+                    Most active: <strong className="report-card-highlight">{reportAnalytics.summary?.most_active_machine || 'None'}</strong>
                   </span>
                 </div>
-                <span className="report-card-sub">Completed vs active loads</span>
               </div>
-
-              <div className="report-card">
-                <span className="report-card-label">Total Time &amp; Top Machine</span>
-                <span className="report-card-num">
-                  {reportAnalytics.summary?.total_minutes ?? 0} <span style={{ fontSize: '15px', fontWeight: 600, color: '#64748b' }}>mins</span>
-                </span>
-                <span className="report-card-sub">
-                  Most active: <strong className="report-card-highlight">{reportAnalytics.summary?.most_active_machine || 'None'}</strong>
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* DAY-WISE MACHINE USAGE & PEOPLE COUNT TABLE */}
             <section className="dash-section">
@@ -1991,7 +2356,9 @@ export default function OwnerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(reportAnalytics.machine_breakdown && reportAnalytics.machine_breakdown.length > 0) ? (
+                    {isReportLoading ? (
+                      <SkeletonTableRows rows={4} columns={6} />
+                    ) : (reportAnalytics.machine_breakdown && reportAnalytics.machine_breakdown.length > 0) ? (
                       reportAnalytics.machine_breakdown.map((m) => (
                         <tr key={m.code}>
                           <td>
@@ -2101,7 +2468,9 @@ export default function OwnerDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredReportSessions.length > 0 ? (
+                    {isReportLoading ? (
+                      <SkeletonTableRows rows={6} columns={9} />
+                    ) : filteredReportSessions.length > 0 ? (
                       filteredReportSessions.map((c) => (
                         <tr key={c.id}>
                           <td>
@@ -2508,6 +2877,118 @@ export default function OwnerDashboard() {
                 </button>
                 <button type="submit" className="modal-submit-btn">
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= POST-OTP "WANNA CHANGE YOUR PASSWORD?" CARD ================= */}
+      {showChangePasswordPrompt && (
+        <div className="otp-prompt-backdrop">
+          <div className="otp-prompt-card" onClick={(e) => e.stopPropagation()}>
+            <div className="otp-prompt-icon-bubble">
+              <KeyRound size={28} className="otp-prompt-icon" />
+            </div>
+
+            <h2 className="otp-prompt-title">Wanna change your password?</h2>
+            <p className="otp-prompt-subtitle">
+              You logged in using a one-time OTP recovery code. Would you like to create a new, permanent password to keep your owner account secure?
+            </p>
+
+            <div className="otp-prompt-actions">
+              <button
+                type="button"
+                className="otp-prompt-btn-confirm"
+                onClick={handleOtpPromptLetsGo}
+              >
+                <span>Let's go</span>
+                <ArrowRight size={16} />
+              </button>
+
+              <button
+                type="button"
+                className="otp-prompt-btn-dismiss"
+                onClick={handleOtpPromptNotNow}
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ONE-TIME GOOGLE EMAIL VERIFICATION MODAL ================= */}
+      {isGoogleVerifyModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-content-card google-verify-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="google-verify-header">
+              <div className="google-icon-bubble">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+              </div>
+              <div className="google-verify-title-col">
+                <span className="google-badge-pill">One-time setup</span>
+                <h3 className="modal-title">Link Recovery Google Email</h3>
+              </div>
+            </div>
+
+            <p className="google-verify-desc">
+              Connect your Gmail / Google account. This is performed <strong>only once</strong> so that if you ever forget your password, an emergency 6-digit OTP code can be sent to this email to regain portal access.
+            </p>
+
+            {googleVerifyError && (
+              <div className="google-verify-error-banner">
+                <AlertTriangle size={16} />
+                <span>{googleVerifyError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveGoogleEmail} className="modal-form">
+              <div className="modal-field">
+                <label>Google / Gmail Address</label>
+                <div className="owner-input-wrapper">
+                  <Mail size={18} className="field-icon" />
+                  <input
+                    type="email"
+                    placeholder="e.g. owner@gmail.com"
+                    value={googleEmailInput}
+                    onChange={(e) => setGoogleEmailInput(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+                <span className="field-helper-text">
+                  Your address is stored in the database for emergency password recovery.
+                </span>
+              </div>
+
+              <div className="modal-btn-row">
+                <button
+                  type="submit"
+                  className="modal-submit-btn"
+                  disabled={googleVerifyLoading}
+                  style={{ width: '100%', justifyContent: 'center' }}
+                >
+                  <CheckCircle size={18} />
+                  <span>{googleVerifyLoading ? 'Verifying & Saving...' : 'Save & Verify Account'}</span>
                 </button>
               </div>
             </form>

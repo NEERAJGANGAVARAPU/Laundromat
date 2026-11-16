@@ -596,10 +596,11 @@ def auth_change_password_view(request):
     username = str(request.data.get('username', 'admin')).strip().lower()
     current_password = str(request.data.get('current_password', ''))
     new_password = str(request.data.get('new_password', ''))
+    skip_current = bool(request.data.get('skip_current_password', False))
 
-    if not current_password or not new_password:
+    if not new_password:
         return Response(
-            {"error": "Current password and new password are both required."},
+            {"error": "New password is required."},
             status=status.HTTP_400_BAD_REQUEST
         )
 
@@ -610,11 +611,29 @@ def auth_change_password_view(request):
     if not user:
         return Response({"error": "Admin account not found in database."}, status=status.HTTP_404_NOT_FOUND)
 
-    if not user.check_password(current_password):
-        return Response(
-            {"error": "Current password is incorrect. Please verify your existing password."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    # If skip_current is requested (e.g. user logged in via OTP), verify an OTP was recently used
+    allow_skip = False
+    if skip_current:
+        from .models import OwnerOTP
+        has_recent_otp = OwnerOTP.objects.filter(
+            username=user.username,
+            used=True,
+            created_at__gte=timezone.now() - timedelta(minutes=45)
+        ).exists()
+        if has_recent_otp:
+            allow_skip = True
+
+    if not allow_skip:
+        if not current_password:
+            return Response(
+                {"error": "Current password is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if not user.check_password(current_password):
+            return Response(
+                {"error": "Current password is incorrect. Please verify your existing password."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     if len(new_password) < 6:
         return Response(
@@ -716,5 +735,166 @@ def auth_status_view(request):
         "last_login": user.last_login.isoformat() if user.last_login else None
     }, status=status.HTTP_200_OK)
 
+
+# ==========================================================
+# OWNER RECOVERY EMAIL — GET / POST
+# ==========================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def owner_recovery_email_view(request):
+    """
+    GET  /api/auth/recovery-email/  → { email, verified }
+    POST /api/auth/recovery-email/  → { email: "owner@gmail.com" } → saves it
+    """
+    from .models import OwnerConfig
+
+    if request.method == 'GET':
+        email = OwnerConfig.get('recovery_email', '')
+        verified = OwnerConfig.get('recovery_email_verified', 'false') == 'true'
+        return Response({'email': email, 'verified': verified}, status=status.HTTP_200_OK)
+
+    if request.method == 'POST':
+        email = str(request.data.get('email', '')).strip().lower()
+        if not email or '@' not in email:
+            return Response({'error': 'A valid email address is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        OwnerConfig.set('recovery_email', email)
+        OwnerConfig.set('recovery_email_verified', 'true')
+        return Response({
+            'success': True,
+            'message': 'Recovery email saved successfully.',
+            'email': email
+        }, status=status.HTTP_200_OK)
+
+
+# ==========================================================
+# FORGOT PASSWORD — Send OTP to recovery email
+# ==========================================================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def owner_forgot_password_view(request):
+    """
+    POST /api/auth/forgot-password/
+    Body: { username: "admin" }
+    Generates a 6-digit OTP, stores it, and emails it to the owner's recovery Gmail.
+    """
+    import random
+    from datetime import timedelta
+    from django.contrib.auth.models import User as DjangoUser
+    from .models import OwnerConfig, OwnerOTP
+    from .email_service import send_otp_email
+
+    username = str(request.data.get('username', 'admin')).strip().lower()
+
+    # Check recovery email exists
+    recovery_email = OwnerConfig.get('recovery_email', '')
+    if not recovery_email:
+        return Response({
+            'error': 'No recovery email is set for this account. Please contact your administrator.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Verify user exists
+    user = DjangoUser.objects.filter(username__iexact=username).first()
+    if not user:
+        user = DjangoUser.objects.filter(is_superuser=True).first()
+    if not user:
+        return Response({'error': 'Admin account not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Invalidate any previous unused OTPs for this user
+    OwnerOTP.objects.filter(username=user.username, used=False).update(used=True)
+
+    # Generate fresh 6-digit OTP
+    otp_code = str(random.randint(100000, 999999))
+    expires_at = timezone.now() + timedelta(minutes=10)
+
+    OwnerOTP.objects.create(
+        username=user.username,
+        otp_code=otp_code,
+        expires_at=expires_at,
+        used=False
+    )
+
+    # Send email
+    sent = send_otp_email(recovery_email, otp_code, username=user.username)
+    if not sent:
+        return Response({
+            'error': 'Failed to send OTP email. Please check the server email configuration.'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Return masked email for UX (e.g. "o****@gmail.com")
+    at_idx = recovery_email.index('@')
+    masked = recovery_email[0] + ('*' * (at_idx - 1)) + recovery_email[at_idx:]
+
+    return Response({
+        'success': True,
+        'message': f'A 6-digit OTP has been sent to your recovery email.',
+        'email_hint': masked
+    }, status=status.HTTP_200_OK)
+
+
+# ==========================================================
+# VERIFY OTP — Login via OTP
+# ==========================================================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def owner_verify_otp_view(request):
+    """
+    POST /api/auth/verify-otp/
+    Body: { username: "admin", otp: "123456" }
+    Validates OTP and returns a login response with logged_in_via: "otp".
+    """
+    from django.contrib.auth.models import User as DjangoUser
+    from .models import OwnerOTP
+
+    username = str(request.data.get('username', 'admin')).strip().lower()
+    otp_input = str(request.data.get('otp', '')).strip()
+
+    if not otp_input or len(otp_input) != 6:
+        return Response({'error': 'Please enter a valid 6-digit OTP code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = DjangoUser.objects.filter(username__iexact=username).first()
+    if not user:
+        user = DjangoUser.objects.filter(is_superuser=True).first()
+    if not user:
+        return Response({'error': 'Admin account not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Find the most recent unused, unexpired OTP for this user
+    otp_obj = OwnerOTP.objects.filter(
+        username=user.username,
+        otp_code=otp_input,
+        used=False
+    ).order_by('-created_at').first()
+
+    if not otp_obj:
+        return Response({'error': 'Invalid OTP code. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not otp_obj.is_valid():
+        return Response({'error': 'This OTP has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Mark OTP as used
+    otp_obj.used = True
+    otp_obj.save(update_fields=['used'])
+
+    # Update last login
+    from django.utils import timezone as tz
+    user.last_login = tz.now()
+    user.save(update_fields=['last_login'])
+
+    import os
+    default_pass = os.environ.get('ADMIN_PASSWORD', 'admin123')
+    is_default = user.check_password(default_pass)
+
+    return Response({
+        'success': True,
+        'logged_in_via': 'otp',
+        'user': {
+            'username': user.username,
+            'role': 'Store owner',
+            'is_default_password': is_default,
+            'login_time': user.last_login.isoformat()
+        }
+    }, status=status.HTTP_200_OK)
 
 

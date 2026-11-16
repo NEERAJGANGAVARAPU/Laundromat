@@ -848,14 +848,59 @@
 .demo-pill {
   font-size: 12px;
   font-weight: 700;
-  background-color: rgba(3, 201, 136, 0.12);
-  color: #028a5d;
-  border: 1px solid rgba(3, 201, 136, 0.35);
   padding: 4px 11px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
+  background: transparent;
+  outline: none;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: inherit;
+  user-select: none;
+}
+
+.demo-pill:hover {
+  transform: translateY(-1px);
+}
+
+.demo-pill:active {
+  transform: scale(0.97);
+}
+
+.demo-pill.pill-live {
+  background-color: rgba(3, 201, 136, 0.12);
+  color: #028a5d;
+  border-color: rgba(3, 201, 136, 0.35);
+}
+
+.demo-pill.pill-live:hover {
+  background-color: rgba(3, 201, 136, 0.2);
+  border-color: rgba(3, 201, 136, 0.5);
+}
+
+.demo-pill.pill-slow {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.demo-pill.pill-slow:hover {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.demo-pill.pill-offline {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.demo-pill.pill-offline:hover {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 .live-dot-pulse {
@@ -865,6 +910,52 @@
   background-color: #03C988;
   box-shadow: 0 0 6px rgba(3, 201, 136, 0.7);
   animation: statusPulse 2s ease-in-out infinite;
+}
+
+.slow-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+  animation: slowDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes slowDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.6);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.offline-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
+  animation: offlineDotPulse 2s ease-in-out infinite;
+}
+
+@keyframes offlineDotPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 .current-date-text {
@@ -1573,27 +1664,33 @@
 
 /* ── Customer Sessions Database scroll — capped at ~15 rows then scrollable ── */
 .sessions-report-scroll {
-  max-height: 760px; /* roughly 15 rows × ~50px per row */
+  max-height: 760px;
+  /* roughly 15 rows × ~50px per row */
   overflow-y: auto;
   overflow-x: auto;
   scrollbar-width: thin;
   scrollbar-color: #cbd5e1 #f8fafc;
 }
+
 .sessions-report-scroll::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
+
 .sessions-report-scroll::-webkit-scrollbar-track {
   background: rgba(248, 250, 252, 0.5);
   border-radius: 8px;
 }
+
 .sessions-report-scroll::-webkit-scrollbar-thumb {
   background: rgba(203, 213, 225, 0.85);
   border-radius: 8px;
 }
+
 .sessions-report-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.95);
 }
+
 .sessions-report-scroll .sessions-table thead th {
   position: sticky;
   top: 0;
@@ -2142,6 +2239,7 @@
   transition: background 0.18s ease;
   flex-shrink: 0;
 }
+
 .hamburger-btn:hover {
   background: rgba(255, 255, 255, 0.88);
 }
@@ -2159,6 +2257,7 @@
   color: rgba(255, 255, 255, 0.8);
   transition: background 0.18s ease;
 }
+
 .sidebar-close-btn:hover {
   background: rgba(255, 255, 255, 0.22);
   color: #ffffff;
@@ -2180,15 +2279,23 @@
   display: none;
 }
 
+.mobile-brand-right {
+  display: flex;
+  align-items: center;
+}
+
 /* ── Responsive tweaks ────────────────────────────────────────── */
 @media (max-width: 1024px) {
+
   /* Login page: stack vertically */
   .owner-login-container {
     flex-direction: column;
   }
+
   .login-left-panel {
     padding: 32px 24px;
   }
+
   .login-right-panel {
     padding: 32px 24px;
   }
@@ -2197,19 +2304,23 @@
   .kpi-grid {
     grid-template-columns: 1fr 1fr;
   }
+
   .machine-cards-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 768px) {
+
   /* ── Show hamburger & close button ── */
   .hamburger-btn {
     display: flex;
   }
+
   .sidebar-close-btn {
     display: flex;
   }
+
   .sidebar-overlay {
     display: block;
   }
@@ -2228,6 +2339,7 @@
     box-shadow: 6px 0 32px rgba(0, 0, 0, 0.28);
     padding: 20px 14px;
   }
+
   .owner-sidebar.sidebar-open {
     transform: translateX(0);
   }
@@ -2236,11 +2348,13 @@
   .sidebar-nav {
     gap: 3px;
   }
+
   .nav-item-btn {
     padding: 9px 12px;
     font-size: 13.5px;
     gap: 10px;
   }
+
   .nav-group-label {
     font-size: 10px;
     margin: 14px 0 6px 10px;
@@ -2253,14 +2367,17 @@
     align-items: center;
     margin-bottom: 14px;
   }
+
   .sidebar-brand-title {
     font-size: 16px;
   }
 
   /* ── Sidebar footer: extra compact ── */
   .sidebar-info-box {
-    display: none; /* hide info blurb on mobile to save height */
+    display: none;
+    /* hide info blurb on mobile to save height */
   }
+
   .sidebar-footer-wrap {
     gap: 6px;
     margin-top: 12px;
@@ -2270,6 +2387,7 @@
   .dashboard-layout {
     flex-direction: row;
   }
+
   .dashboard-main {
     width: 100%;
     padding: 14px 14px 24px 14px;
@@ -2290,6 +2408,20 @@
     display: flex;
     align-items: center;
     gap: 10px;
+  }
+
+  .mobile-brand-right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .mobile-brand-pill {
+    font-size: 11.5px;
+    padding: 4px 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   }
 
   .mobile-brand-icon {
@@ -2328,12 +2460,20 @@
 
   /* ── Topbar ── */
   .main-topbar {
-    gap: 10px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 16px;
+  }
+
+  .desktop-topbar-right {
+    display: none !important;
   }
   .breadcrumbs {
     font-size: 12.5px;
   }
+
   .current-date-text {
     display: none;
   }
@@ -2345,13 +2485,16 @@
     gap: 10px;
     margin-bottom: 14px;
   }
+
   .dash-heading {
     font-size: 22px;
     letter-spacing: -0.3px;
   }
+
   .dash-subheading {
     font-size: 13px;
   }
+
   .add-machine-btn {
     font-size: 13px;
     padding: 8px 14px;
@@ -2365,6 +2508,7 @@
     gap: 10px;
     margin-bottom: 18px;
   }
+
   .kpi-card {
     padding: 14px;
     min-height: 110px;
@@ -2386,13 +2530,16 @@
   .kpi-big-num {
     font-size: 20px;
   }
+
   .kpi-total-num {
     font-size: 10.5px;
   }
+
   .kpi-label {
     font-size: 11px;
     margin-bottom: 4px;
   }
+
   .kpi-footer-text {
     font-size: 9.5px;
   }
@@ -2461,6 +2608,7 @@
     gap: 8px;
     width: 100%;
   }
+
   .machine-floor-card {
     padding: 10px 8px;
     min-height: auto;
@@ -2470,6 +2618,7 @@
     min-width: 0;
     overflow: hidden;
   }
+
   .floor-card-top {
     display: flex;
     align-items: center;
@@ -2479,23 +2628,28 @@
     margin-bottom: 6px;
     width: 100%;
   }
+
   .code-badge-wrap {
     display: flex;
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
   }
+
   .machine-icon-tag {
     font-size: 12px;
   }
+
   .machine-code-text {
     font-size: 12px;
   }
+
   .floor-card-top-right {
     display: flex;
     align-items: center;
     max-width: 100%;
   }
+
   .status-chip {
     font-size: 8px !important;
     padding: 1.5px 5px !important;
@@ -2507,28 +2661,34 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+
   .floor-card-body {
     margin-bottom: 6px;
   }
+
   .floor-primary-text {
     font-size: 12.5px;
     line-height: 1.2;
     margin-bottom: 2px;
     word-break: break-word;
   }
+
   .floor-primary-text.text-neutral,
   .floor-primary-text.text-amber {
     font-size: 11.5px;
   }
+
   .floor-sub-text {
     font-size: 9.5px;
     line-height: 1.25;
     word-break: break-word;
   }
+
   .floor-card-actions {
     gap: 5px;
     padding-top: 6px;
   }
+
   .floor-btn-action {
     height: 28px;
     font-size: 10.5px;
@@ -2536,45 +2696,55 @@
     gap: 4px;
     border-radius: 7px;
   }
+
   .floor-btn-action svg {
     width: 12px;
     height: 12px;
   }
+
   .floor-secondary-actions {
     gap: 4px;
   }
+
   .floor-btn-delete {
     height: 28px;
     padding: 0 6px;
     border-radius: 7px;
   }
+
   .floor-btn-delete svg {
     width: 12px;
     height: 12px;
   }
+
   .machine-filter-bar {
     gap: 8px;
     margin-bottom: 14px;
   }
+
   .type-pills-wrap {
     width: 100%;
     justify-content: space-between;
   }
+
   .type-pill {
     flex: 1;
     text-align: center;
     padding: 5px 2px;
     font-size: 11px;
   }
+
   .dash-search-box {
     min-width: 0;
     width: 100%;
     height: 38px;
   }
+
   .status-filter-wrap {
     width: 100%;
     height: 38px;
   }
+
   .status-select {
     width: 100%;
     font-size: 12px;
@@ -2587,17 +2757,21 @@
     gap: 8px;
     margin-bottom: 16px;
   }
+
   .qr-select-label {
     font-size: 13px;
   }
+
   .qr-select-box {
     min-width: 0;
     width: 100%;
   }
+
   .qr-dropdown {
     height: 38px;
     font-size: 12.5px;
   }
+
   .printable-qr-card {
     padding: 12px;
     border-radius: 14px;
@@ -2606,18 +2780,22 @@
     max-width: 100%;
     overflow: hidden;
   }
+
   .qr-card-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
     margin-bottom: 14px;
   }
+
   .qr-machine-code {
     font-size: 17px;
   }
+
   .qr-machine-subtitle {
     font-size: 11.5px;
   }
+
   .qr-card-body {
     flex-direction: column;
     align-items: center;
@@ -2629,41 +2807,49 @@
     width: 100%;
     max-width: 100%;
   }
+
   .qr-image-wrapper {
     padding: 6px;
     border-radius: 10px;
   }
+
   .actual-qr-image {
     width: 120px;
     height: 120px;
     max-width: 100%;
   }
+
   .qr-text-info {
     width: 100%;
     max-width: 100%;
     overflow: hidden;
   }
+
   .qr-dest-label {
     font-size: 11.5px;
     margin-bottom: 4px;
   }
+
   .qr-url-text {
     font-size: 13px;
     word-break: break-all;
     line-height: 1.3;
     margin-bottom: 6px;
   }
+
   .qr-instruction-text {
     font-size: 11px;
     line-height: 1.35;
     max-width: 100%;
   }
+
   .qr-card-footer {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
     width: 100%;
   }
+
   .qr-action-btn {
     width: 100%;
     justify-content: center;
@@ -2671,6 +2857,7 @@
     font-size: 12.5px;
     border-radius: 8px;
   }
+
   .qr-footer-hint {
     margin-left: 0;
     text-align: center;
@@ -2686,6 +2873,7 @@
     overflow-x: hidden;
     box-sizing: border-box;
   }
+
   .reports-top-bar {
     flex-direction: column;
     align-items: stretch;
@@ -2693,55 +2881,67 @@
     gap: 10px;
     border-radius: 14px;
   }
+
   .reports-title-col h1 {
     font-size: 18px;
     margin-bottom: 2px;
   }
+
   .reports-title-col p {
     font-size: 11.5px;
     line-height: 1.35;
   }
+
   .reports-controls-col {
     flex-direction: column;
     width: 100%;
     gap: 6px;
   }
+
   .btn-export {
     width: 100%;
     justify-content: center;
     font-size: 12px;
     padding: 8px 10px;
   }
+
   .reports-filter-section {
     padding: 10px;
     gap: 8px;
     border-radius: 12px;
     box-sizing: border-box;
   }
+
   .date-range-presets-row {
     gap: 4px;
   }
+
   .preset-pill-btn {
     font-size: 10.5px;
     padding: 4px 8px;
   }
+
   .date-inputs-row {
     flex-direction: column;
     align-items: stretch;
     gap: 6px;
   }
+
   .date-input-field-wrap {
     width: 100%;
     justify-content: space-between;
     box-sizing: border-box;
     padding: 5px 8px;
   }
+
   .date-input-field-wrap label {
     font-size: 11px;
   }
+
   .date-range-picker-input {
     font-size: 11.5px;
   }
+
   .date-range-badge-indicator {
     width: 100%;
     justify-content: center;
@@ -2750,31 +2950,37 @@
     box-sizing: border-box;
     text-align: center;
   }
+
   .reports-kpi-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px;
     width: 100%;
   }
+
   .report-card {
     padding: 10px 8px;
     border-radius: 12px;
     box-sizing: border-box;
     min-width: 0;
   }
+
   .report-card-label {
     font-size: 10px;
     letter-spacing: 0.2px;
     margin-bottom: 4px;
   }
+
   .report-card-num {
     font-size: 17px;
     line-height: 1.1;
   }
+
   .report-card-sub {
     font-size: 9.5px;
     margin-top: 3px;
     line-height: 1.25;
   }
+
   .report-outcomes-badges-wrap {
     display: flex;
     align-items: center;
@@ -2783,19 +2989,23 @@
     margin: 4px 0 3px 0;
     width: 100%;
   }
+
   .outcome-badge {
     font-size: 9.5px;
     padding: 2.5px 6.5px;
     gap: 4px;
     border-radius: 999px;
   }
+
   .outcome-badge strong {
     font-size: 10.5px;
   }
+
   .outcome-dot {
     width: 5.5px;
     height: 5.5px;
   }
+
   .table-wrapper {
     width: 100%;
     max-width: 100%;
@@ -2803,9 +3013,11 @@
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
   }
+
   .sessions-table {
     min-width: 440px;
   }
+
   .sessions-table th,
   .sessions-table td {
     padding: 8px 6px;
@@ -2823,9 +3035,11 @@
   .owner-login-container {
     flex-direction: column;
   }
+
   .login-left-panel {
     display: none;
   }
+
   .login-right-panel {
     flex: 1;
     padding: 28px 20px;
@@ -2851,6 +3065,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+
   .kpi-card {
     padding: 12px;
     min-height: 100px;
@@ -2873,6 +3088,7 @@
     padding: 2px 5.5px;
     gap: 3.5px;
   }
+
   .outcome-badge strong {
     font-size: 10px;
   }
@@ -2890,6 +3106,11 @@
   .demo-pill {
     font-size: 11px;
     padding: 3px 8px;
+  }
+  .mobile-brand-bar .demo-pill {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    gap: 4px;
   }
 }
 
@@ -4122,4 +4343,394 @@
   font-size: 12.5px;
   font-weight: 700;
   color: #1d4ed8;
+}
+
+
+/* ==========================================================
+   AUTHENTICATION ENHANCEMENTS: GOOGLE VERIFICATION & OTP
+   ========================================================== */
+
+/* Forgot Password & OTP on Login page */
+.forgot-pass-link-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2558ea;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+
+.forgot-pass-link-btn:hover {
+  color: #1e3a8a;
+  text-decoration: underline;
+}
+
+.otp-actions-row,
+.otp-resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  gap: 12px;
+}
+
+.back-to-login-btn,
+.resend-otp-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.back-to-login-btn:hover,
+.resend-otp-btn:hover {
+  color: #2558ea;
+  background: rgba(37, 88, 234, 0.08);
+}
+
+.otp-code-input {
+  text-align: center;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: 12px !important;
+  color: #0b1a44 !important;
+  font-family: inherit;
+}
+
+.otp-code-hint {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 4px;
+  display: block;
+  text-align: center;
+}
+
+.login-info-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+
+/* ==========================================================
+   POST-OTP CHANGE PASSWORD PROMPT CARD WITH BLURRED BG
+   ========================================================== */
+
+/* Background blur applied to the entire dashboard */
+.dashboard-layout.blurred-for-prompt>.owner-sidebar,
+.dashboard-layout.blurred-for-prompt>.dashboard-main {
+  filter: blur(10px) brightness(0.92);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.35s ease;
+}
+
+/* Dedicated backdrop with blur overlay */
+.otp-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 26, 68, 0.45);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  padding: 20px;
+  animation: promptFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes promptFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.otp-prompt-card {
+  width: 100%;
+  max-width: 460px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, 1);
+  border-radius: 26px;
+  padding: 38px 32px 32px;
+  box-shadow:
+    0 30px 80px -15px rgba(11, 26, 68, 0.35),
+    0 12px 32px -4px rgba(37, 88, 234, 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 1);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.otp-prompt-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5px;
+  background: linear-gradient(90deg, #2558ea, #38bdf8, #2558ea);
+}
+
+.otp-prompt-icon-bubble {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1.5px solid #bfdbfe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 10px 24px -6px rgba(37, 88, 234, 0.25);
+}
+
+.otp-prompt-icon {
+  color: #2558ea;
+}
+
+.otp-prompt-title {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0b1a44;
+  margin: 0 0 10px;
+  letter-spacing: -0.4px;
+}
+
+.otp-prompt-subtitle {
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #475569;
+  margin: 0 0 28px;
+}
+
+.otp-prompt-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.otp-prompt-btn-confirm {
+  flex: 1;
+  height: 48px;
+  background: linear-gradient(135deg, #2558ea 0%, #1e40af 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px -4px rgba(37, 88, 234, 0.45);
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.otp-prompt-btn-confirm:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px -4px rgba(37, 88, 234, 0.55);
+}
+
+.otp-prompt-btn-confirm:active {
+  transform: scale(0.99);
+}
+
+.otp-prompt-btn-dismiss {
+  flex: 1;
+  height: 48px;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-family: inherit;
+}
+
+.otp-prompt-btn-dismiss:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+/* ==========================================================
+   ONE-TIME GOOGLE EMAIL VERIFICATION MODAL
+   ========================================================== */
+
+.google-verify-modal-card {
+  max-width: 500px;
+}
+
+.google-verify-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.google-icon-bubble {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
+}
+
+.google-verify-title-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.google-badge-pill {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #2558ea;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.google-verify-desc {
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475569;
+  margin-bottom: 18px;
+}
+
+.google-verify-error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.field-helper-text {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 5px;
+  display: block;
+}
+
+/* ==========================================================
+   SETTINGS TAB RECOVERY EMAIL & OTP BANNER
+   ========================================================== */
+
+.otp-reset-banner {
+  background: #ecfdf5;
+  border: 1.5px solid #a7f3d0;
+  color: #065f46;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 18px;
+  line-height: 1.45;
+}
+
+.recovery-email-card-body {
+  padding: 4px 0 0;
+}
+
+.recovery-email-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.recovery-email-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.recovery-email-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.recovery-email-text {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0b1a44;
+}
+
+.btn-update-email {
+  width: 100%;
+  height: 40px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-update-email:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #2558ea;
 }

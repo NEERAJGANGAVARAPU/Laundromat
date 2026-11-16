@@ -79,3 +79,44 @@ input, select, textarea {
   outline: none;
 }
 
+
+
+/* ============================================================
+   SKELETON SHIMMER & LOADING ANIMATION SYSTEM
+   ============================================================ */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.55) 0%,
+    rgba(241, 245, 249, 0.88) 50%,
+    rgba(226, 232, 240, 0.55) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.7s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  display: inline-block;
+  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.skeleton-row td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #f1f5f9;
+}

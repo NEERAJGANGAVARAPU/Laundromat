@@ -18,6 +18,7 @@ import {
   AlertCircle,
   Clock
 } from 'lucide-react';
+import { SkeletonCustomerView } from './common/Skeleton';
 import '../App.css';
 
 export default function CustomerView() {
@@ -61,6 +62,7 @@ export default function CustomerView() {
   // Backend machines state
   const [availableMachines, setAvailableMachines] = useState([]);
   const [backendConnected, setBackendConnected] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   // Timer states
   const [duration, setDuration] = useState(initialDuration); // in minutes
@@ -224,6 +226,9 @@ export default function CustomerView() {
           if (scannedCode.toUpperCase().startsWith('D')) setMachineType('dryer');
         }
         setBackendConnected(false);
+      })
+      .finally(() => {
+        setIsInitialLoading(false);
       });
 
     if ('Notification' in window) {
@@ -717,7 +722,10 @@ export default function CustomerView() {
 
         {/* ================= STEP 01: CHECK IN ================= */}
         {!isOccupiedByOther && !isCancelledByOwner && step === 1 && (
-          <main className="content-step">
+          isInitialLoading && !hasActiveLocalSession ? (
+            <SkeletonCustomerView />
+          ) : (
+            <main className="content-step">
             <div className="heading-with-machine-row">
               <div className="heading-left-col">
                 <div className="step-tag">01 / CHECK IN</div>
@@ -870,6 +878,7 @@ export default function CustomerView() {
               <ArrowRight size={20} />
             </button>
           </main>
+          )
         )}
 
         {/* ================= STEP 02: SET YOUR TIMER ================= */}

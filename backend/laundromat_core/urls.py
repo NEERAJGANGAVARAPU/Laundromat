@@ -13,7 +13,10 @@ from .views import (
     auth_login_view,
     auth_change_password_view,
     auth_reset_password_view,
-    auth_status_view
+    auth_status_view,
+    owner_recovery_email_view,
+    owner_forgot_password_view,
+    owner_verify_otp_view
 )
 
 # 1. Create a REST Framework router
@@ -38,6 +41,9 @@ urlpatterns = [
     path('auth/change-password/', auth_change_password_view, name='auth_change_password'),
     path('auth/reset-password/', auth_reset_password_view, name='auth_reset_password'),
     path('auth/status/', auth_status_view, name='auth_status'),
+    path('auth/recovery-email/', owner_recovery_email_view, name='owner_recovery_email'),
+    path('auth/forgot-password/', owner_forgot_password_view, name='owner_forgot_password'),
+    path('auth/verify-otp/', owner_verify_otp_view, name='owner_verify_otp'),
     path('reports/analytics/', reports_analytics_view, name='reports_analytics'),
     path('reports/xls/', reports_xls_view, name='reports_xls'),
     path('reports/pdf/', reports_pdf_view, name='reports_pdf'),

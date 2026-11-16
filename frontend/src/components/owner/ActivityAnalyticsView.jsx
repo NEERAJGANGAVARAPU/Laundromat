@@ -13,6 +13,7 @@ import {
   Database,
   Radio
 } from 'lucide-react';
+import { SkeletonActivityAnalytics } from '../common/Skeleton';
 import '../../ActivityAnalytics.css';
 
 export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
@@ -365,8 +366,12 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
         </div>
       </div>
 
-      {/* 3. Four Top KPI Summary Cards */}
-      <div className="activity-kpi-grid">
+      {isLoading && !realtimeData ? (
+        <SkeletonActivityAnalytics />
+      ) : (
+        <>
+          {/* 3. Four Top KPI Summary Cards */}
+          <div className="activity-kpi-grid">
         {/* Card 1: Customers */}
         <div className="activity-kpi-card">
           <div className="kpi-card-header">
@@ -887,6 +892,8 @@ export default function ActivityAnalyticsView({ apiHost = '127.0.0.1' }) {
           Usage only. No financial or collection data. Customer = unique patron in a period · Session = machine run session · Cycle = one completed machine run
         </p>
       </footer>
+        </>
+      )}
     </div>
   );
 }

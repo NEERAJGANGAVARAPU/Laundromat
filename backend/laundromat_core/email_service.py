@@ -594,3 +594,156 @@ Powered by SanielSoft
     except Exception as e:
         logger.error(f"❌ Failed to send 5-min reminder email for session {session.id}: {e}", exc_info=True)
         return False
+
+
+def send_otp_email(to_email, otp_code, username='admin'):
+    """
+    Sends a 6-digit OTP email to the owner's registered recovery Gmail.
+    Called when the owner clicks "Forgot Password" on the login page.
+    The OTP is valid for 10 minutes.
+    """
+    subject = "🔐 Your SanielSoft ai Login OTP Code"
+
+    text_message = f"""
+Hello {username},
+
+You requested a one-time login code for the SanielSoft ai Owner Portal.
+
+Your OTP Code: {otp_code}
+
+This code expires in 10 minutes. Do not share it with anyone.
+
+If you did not request this, please ignore this email and your account will remain secure.
+
+— SanielSoft ai Laundromat Management
+""".strip()
+
+    html_message = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your OTP Code — SanielSoft ai</title>
+  <style>
+    body {{
+      margin: 0; padding: 0;
+      background-color: #F8FAFC;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0F172A;
+    }}
+    .email-container {{
+      max-width: 520px;
+      margin: 32px auto;
+      background: #FFFFFF;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+      border: 1px solid #E2E8F0;
+    }}
+    .header {{
+      background: linear-gradient(135deg, #1E3A8A 0%, #2558EA 100%);
+      color: #FFFFFF;
+      padding: 32px 28px 26px;
+      text-align: center;
+    }}
+    .brand-pill {{
+      display: inline-block;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #93C5FD;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 12px; margin-bottom: 12px;
+    }}
+    .header h1 {{ margin: 0 0 6px; font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }}
+    .header p  {{ margin: 0; font-size: 14px; color: #CBD5E1; }}
+    .content {{ padding: 32px 28px; }}
+    .otp-box {{
+      background: #EFF6FF;
+      border: 2px dashed #BFDBFE;
+      border-radius: 14px;
+      text-align: center;
+      padding: 28px 20px;
+      margin-bottom: 24px;
+    }}
+    .otp-label {{
+      font-size: 12px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: #3B82F6; margin-bottom: 10px;
+    }}
+    .otp-code {{
+      font-size: 42px; font-weight: 900; letter-spacing: 10px;
+      color: #1E3A8A; font-variant-numeric: tabular-nums;
+    }}
+    .otp-expiry {{
+      margin-top: 10px; font-size: 12px; color: #64748B;
+    }}
+    .info-box {{
+      background: #FFF7ED;
+      border: 1px solid #FED7AA;
+      border-left: 4px solid #F97316;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13px; line-height: 1.55; color: #7C2D12;
+      margin-bottom: 20px;
+    }}
+    .footer {{
+      background: #F8FAFC;
+      border-top: 1px solid #E2E8F0;
+      padding: 20px 28px;
+      text-align: center;
+      font-size: 12px; color: #64748B;
+    }}
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <div class="brand-pill">SanielSoft ai · Owner Portal</div>
+      <h1>🔐 One-Time Login Code</h1>
+      <p>Use this code to access your Owner Portal</p>
+    </div>
+    <div class="content">
+      <div class="otp-box">
+        <div class="otp-label">Your OTP Code</div>
+        <div class="otp-code">{otp_code}</div>
+        <div class="otp-expiry">⏱ Expires in <strong>10 minutes</strong></div>
+      </div>
+      <div class="info-box">
+        <strong>⚠️ Security Notice:</strong> Never share this code with anyone.
+        SanielSoft ai staff will never ask for your OTP.
+        If you didn't request this code, please ignore this email — your account is safe.
+      </div>
+      <p style="font-size:13px; color:#475569; line-height:1.6; margin:0;">
+        Enter this code on the Owner Portal login page to sign in. After logging in
+        with this OTP, you'll be prompted to set a permanent password to keep your
+        account secure.
+      </p>
+    </div>
+    <div class="footer">
+      <p style="margin:0 0 4px;"><strong>SanielSoft ai</strong></p>
+      <p style="margin:0 0 6px;">Laundromat management application</p>
+      <p style="margin:0; font-size:11px; color:#94A3B8;">
+        This is an automated security email. Please do not reply.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
+""".strip()
+
+    try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'SanielSoft ai <noreply@sanielsoft.local>')
+        send_mail(
+            subject=subject,
+            message=text_message,
+            from_email=from_email,
+            recipient_list=[to_email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info(f"✅ OTP email sent to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"❌ Failed to send OTP email to {to_email}: {e}", exc_info=True)
+        return False

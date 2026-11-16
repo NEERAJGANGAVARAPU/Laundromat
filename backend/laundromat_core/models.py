@@ -177,3 +177,53 @@ def on_session_saved(sender, instance, **kwargs):
                 machine.save(update_fields=['status'])
         except Exception:
             pass
+
+
+# ==========================================================
+# OWNER AUTH EXTENSIONS: Recovery Email & OTP
+# ==========================================================
+
+class OwnerConfig(models.Model):
+    """
+    Stores owner-level configuration as key/value pairs.
+    Keys used:
+      - 'recovery_email'          → owner's Gmail for OTP recovery
+      - 'recovery_email_verified' → 'true' once email is confirmed & stored
+    """
+    key = models.CharField(max_length=100, unique=True)
+    value = models.TextField(blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"OwnerConfig[{self.key}]"
+
+    @classmethod
+    def get(cls, key, default=''):
+        obj = cls.objects.filter(key=key).first()
+        return obj.value if obj else default
+
+    @classmethod
+    def set(cls, key, value):
+        obj, _ = cls.objects.get_or_create(key=key)
+        obj.value = str(value)
+        obj.save(update_fields=['value', 'updated_at'])
+        return obj
+
+
+class OwnerOTP(models.Model):
+    """
+    Stores temporary 6-digit OTPs for password-recovery login.
+    Each OTP expires after 10 minutes and can only be used once.
+    """
+    username = models.CharField(max_length=150)
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        """Returns True if OTP is not yet used and not yet expired."""
+        return not self.used and timezone.now() <= self.expires_at
+
+    def __str__(self):
+        return f"OTP for {self.username} (used={self.used})"
