@@ -367,17 +367,27 @@
 }
 
 .login-error-banner {
-  background: rgba(254, 242, 242, 0.85);
+  background: rgba(254, 242, 242, 0.9);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1.5px solid rgba(254, 202, 202, 0.9);
-  color: #dc2626;
-  font-size: 13.5px;
-  padding: 10px 14px;
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 11px 14px;
   border-radius: 12px;
   margin-bottom: 18px;
   font-weight: 600;
   box-shadow: var(--glass-shadow-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.login-error-banner .error-banner-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #dc2626;
 }
 
 .owner-form {
@@ -482,6 +492,7 @@
 .owner-submit-btn:active {
   transform: scale(0.99);
 }
+
 
 .next-step-note {
   display: flex;
@@ -958,10 +969,101 @@
   }
 }
 
+.current-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  padding: 5px 12px;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  user-select: none;
+}
+
+.topbar-clock-icon {
+  color: #2558ea;
+  flex-shrink: 0;
+}
+
+/* ── Australian Live Clock & Date Badge ── */
+.topbar-clock-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  padding: 3.5px 9px;
+  border-radius: 8px;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.2px;
+  user-select: none;
+}
+
+.topbar-clock-icon {
+  color: #2558ea;
+  flex-shrink: 0;
+  animation: clockPulse 2s ease-in-out infinite;
+}
+
+@keyframes clockPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.75;
+    transform: scale(0.96);
+  }
+}
+
+.current-time-text {
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 .current-date-text {
-  font-size: 13px;
-  color: #64748b;
+  font-size: 12.5px;
+  color: #334155;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: -0.1px;
+  white-space: nowrap;
+}
+
+.topbar-clock-time {
+  font-weight: 700;
+  color: #0f1844;
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar-date-sep {
+  color: #94a3b8;
+}
+
+.topbar-date-val {
+  color: #475569;
+}
+
+.topbar-tz-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #2558ea;
+  background: rgba(37, 88, 234, 0.1);
+  padding: 1.5px 5.5px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
 }
 
 .switch-customer-btn {
@@ -2470,6 +2572,7 @@
   .desktop-topbar-right {
     display: none !important;
   }
+
   .breadcrumbs {
     font-size: 12.5px;
   }
@@ -3042,8 +3145,30 @@
 
   .login-right-panel {
     flex: 1;
-    padding: 28px 20px;
+    padding: 24px 18px 36px 18px;
     min-height: 100vh;
+    justify-content: flex-start;
+  }
+
+  .right-top-bar {
+    margin-bottom: 16px;
+  }
+
+  .login-card-center {
+    padding: 32px 24px;
+    border-radius: 22px;
+    margin: 8px auto 20px auto;
+  }
+
+  .login-title {
+    font-size: 24px;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+
+  .login-subtitle {
+    font-size: 14px;
+    margin-bottom: 20px;
   }
 }
 
@@ -3107,10 +3232,133 @@
     font-size: 11px;
     padding: 3px 8px;
   }
+
   .mobile-brand-bar .demo-pill {
     font-size: 10.5px;
     padding: 3px 8px;
     gap: 4px;
+  }
+
+  /* ── Mobile Login & Forgot Password Optimization ── */
+  .login-right-panel {
+    padding: 16px 12px 28px 12px;
+  }
+
+  .right-top-bar {
+    margin-bottom: 12px;
+  }
+
+  .login-card-center {
+    padding: 24px 18px;
+    border-radius: 20px;
+    margin: 4px auto 16px auto;
+    width: 100%;
+  }
+
+  .key-icon-wrapper {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+
+  .login-title {
+    font-size: 21px;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+
+  .login-subtitle {
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 18px;
+  }
+
+  .owner-form {
+    gap: 15px;
+  }
+
+  .owner-input-wrapper {
+    border-radius: 12px;
+  }
+
+  .owner-input-wrapper input {
+    font-size: 15px;
+    padding: 12px 14px 12px 40px;
+  }
+
+  .otp-code-input {
+    font-size: 21px !important;
+    letter-spacing: 7px !important;
+    padding: 10px 4px !important;
+    text-indent: 7px;
+  }
+
+  .otp-code-hint {
+    font-size: 11px;
+    margin-top: 5px;
+  }
+
+  .otp-actions-row,
+  .otp-resend-row {
+    flex-direction: column-reverse;
+    gap: 8px;
+    margin-top: 14px;
+    width: 100%;
+  }
+
+  .back-to-login-btn,
+  .resend-otp-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 10px 14px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .back-to-login-btn {
+    background: rgba(241, 245, 249, 0.9);
+    border: 1px solid rgba(203, 213, 225, 0.7);
+    color: #475569;
+  }
+
+  .resend-otp-btn {
+    background: rgba(37, 88, 234, 0.08);
+    border: 1px solid rgba(37, 88, 234, 0.2);
+    color: #2558ea;
+    font-weight: 700;
+  }
+
+  .login-error-banner {
+    font-size: 12.5px;
+    padding: 10px 12px;
+    gap: 8px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+    line-height: 1.45;
+  }
+
+  .login-info-banner {
+    font-size: 12px;
+    padding: 9px 12px;
+    gap: 7px;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  .owner-submit-btn {
+    font-size: 15px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-top: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .otp-code-input {
+    font-size: 19px !important;
+    letter-spacing: 5px !important;
+    text-indent: 5px;
   }
 }
 
@@ -4597,6 +4845,34 @@
   align-items: center;
   gap: 14px;
   margin-bottom: 14px;
+  position: relative;
+}
+
+.google-verify-header .modal-close-btn {
+  position: static;
+  margin-left: auto;
+}
+
+.google-verify-skip-btn {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.google-verify-skip-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .google-icon-bubble {
@@ -4733,4 +5009,37 @@
   background: #eff6ff;
   border-color: #93c5fd;
   color: #2558ea;
+}
+
+/* ── Google OAuth Button Styling (PDF Phase 2) ── */
+.google-oauth-btn-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.google-oauth-btn-wrapper>div {
+  width: 100% !important;
+}
+
+.google-alt-mode-btn {
+  background: transparent;
+  border: none;
+  color: #2558ea;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: block;
+  margin: 6px auto 0 auto;
+  transition: opacity 0.2s;
+  font-family: inherit;
+}
+
+.google-alt-mode-btn:hover {
+  opacity: 0.8;
 }

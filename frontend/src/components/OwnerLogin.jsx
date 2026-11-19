@@ -28,6 +28,7 @@ export default function OwnerLogin({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpEmailHint, setOtpEmailHint] = useState('');
+  const [recoveryEmailInput, setRecoveryEmailInput] = useState('');
 
   // Status states
   const [error, setError] = useState('');
@@ -96,20 +97,21 @@ export default function OwnerLogin({ onLogin }) {
     setIsLoading(true);
 
     const cleanUser = username.trim().toLowerCase() || 'admin';
+    const cleanEmail = recoveryEmailInput.trim().toLowerCase();
     const host = getApiHost();
 
     try {
       let res = await fetch('/api/auth/forgot-password/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: cleanUser })
+        body: JSON.stringify({ username: cleanUser, email: cleanEmail })
       }).catch(() => null);
 
       if (!res || !res.ok) {
         res = await fetch(`http://${host}:8000/api/auth/forgot-password/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: cleanUser })
+          body: JSON.stringify({ username: cleanUser, email: cleanEmail })
         });
       }
 
@@ -119,8 +121,8 @@ export default function OwnerLogin({ onLogin }) {
       }
 
       setIsLoading(false);
-      setOtpEmailHint(data.email_hint || '');
-      setInfoMessage(data.message || 'A 6-digit OTP has been sent to your registered email.');
+      setOtpEmailHint(data.email_hint || cleanEmail);
+      setInfoMessage(data.message || 'A 6-digit OTP has been sent to your registered recovery email.');
       setAuthMode('forgot_otp');
     } catch (err) {
       setIsLoading(false);
@@ -366,22 +368,32 @@ export default function OwnerLogin({ onLogin }) {
 
               <h2 className="login-title">Reset with OTP</h2>
               <p className="login-subtitle">
-                Enter your admin username. We will send a 6-digit one-time code to your verified Google recovery email.
+                Enter your registered recovery Gmail. We will send a 6-digit one-time code to verify your identity.
               </p>
 
-              {error && <div className="login-error-banner">{error}</div>}
+              {error && (
+                <div className="login-error-banner">
+                  <AlertCircle size={18} className="error-banner-icon" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <form onSubmit={handleRequestOtp} className="owner-form">
                 <div className="form-field-group">
-                  <label className="field-label">Username</label>
+                  <label className="field-label">Recovery Gmail Address</label>
                   <div className="owner-input-wrapper">
                     <Mail size={18} className="field-icon" />
                     <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Enter admin username"
+                      type="email"
+                      value={recoveryEmailInput}
+                      onChange={(e) => setRecoveryEmailInput(e.target.value)}
+                      placeholder="e.g. owner@gmail.com"
                       required
+                      autoFocus
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck="false"
+                      inputMode="email"
                     />
                   </div>
                 </div>
@@ -430,7 +442,12 @@ export default function OwnerLogin({ onLogin }) {
                 </div>
               )}
 
-              {error && <div className="login-error-banner">{error}</div>}
+              {error && (
+                <div className="login-error-banner">
+                  <AlertCircle size={18} className="error-banner-icon" />
+                  <span>{error}</span>
+                </div>
+              )}
 
               <form onSubmit={handleVerifyOtp} className="owner-form">
                 <div className="form-field-group">
@@ -440,6 +457,7 @@ export default function OwnerLogin({ onLogin }) {
                       type="text"
                       inputMode="numeric"
                       pattern="[0-9]*"
+                      autoComplete="one-time-code"
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}

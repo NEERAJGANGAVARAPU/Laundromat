@@ -118,6 +118,32 @@ export default function OwnerDashboard() {
   // Customers state (fetched live from Django API)
   const [customers, setCustomers] = useState([]);
 
+  // Live Australian Time and Date Clock (Sydney / Melbourne AEST/AEDT)
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const australianDate = currentDateTime.toLocaleDateString('en-US', {
+    timeZone: 'Australia/Sydney',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  const australianTime = currentDateTime.toLocaleTimeString('en-US', {
+    timeZone: 'Australia/Sydney',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+
   // Filters
   const [typeFilter, setTypeFilter] = useState('all'); // 'all', 'washer', 'dryer'
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'available', 'occupied', 'maintenance'
@@ -1381,14 +1407,15 @@ export default function OwnerDashboard() {
 
           <div className="topbar-right desktop-topbar-right">
             {renderConnectionPill('desktop-topbar-pill')}
-            <span className="current-date-text">
-              {new Date().toLocaleDateString('en-US', {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}
-            </span>
+            <div className="current-date-badge" title="Australian Eastern Time (Sydney, Australia)">
+              <Clock size={15} className="topbar-clock-icon" />
+              <span className="current-date-text">
+                <span className="topbar-clock-time">{australianTime}</span>
+                <span className="topbar-date-sep">·</span>
+                <span className="topbar-date-val">{australianDate}</span>
+                <span className="topbar-tz-badge">AEDT</span>
+              </span>
+            </div>
           </div>
         </header>
 
@@ -2945,13 +2972,21 @@ export default function OwnerDashboard() {
                 </svg>
               </div>
               <div className="google-verify-title-col">
-                <span className="google-badge-pill">One-time setup</span>
+                <span className="google-badge-pill">Recovery Setup</span>
                 <h3 className="modal-title">Link Recovery Google Email</h3>
               </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setIsGoogleVerifyModalOpen(false)}
+                title="Dismiss (Skip for now)"
+              >
+                <XIcon size={18} />
+              </button>
             </div>
 
             <p className="google-verify-desc">
-              Connect your Gmail / Google account. This is performed <strong>only once</strong> so that if you ever forget your password, an emergency 6-digit OTP code can be sent to this email to regain portal access.
+              Optionally connect your Gmail / Google account to enable self-service password recovery via OTP. You can also configure or update this voluntary recovery email anytime in <strong>Access Settings</strong>.
             </p>
 
             {googleVerifyError && (
@@ -2980,12 +3015,19 @@ export default function OwnerDashboard() {
                 </span>
               </div>
 
-              <div className="modal-btn-row">
+              <div className="modal-btn-row" style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="google-verify-skip-btn"
+                  onClick={() => setIsGoogleVerifyModalOpen(false)}
+                >
+                  Skip for now
+                </button>
                 <button
                   type="submit"
                   className="modal-submit-btn"
                   disabled={googleVerifyLoading}
-                  style={{ width: '100%', justifyContent: 'center' }}
+                  style={{ flex: 1, justifyContent: 'center' }}
                 >
                   <CheckCircle size={18} />
                   <span>{googleVerifyLoading ? 'Verifying & Saving...' : 'Save & Verify Account'}</span>

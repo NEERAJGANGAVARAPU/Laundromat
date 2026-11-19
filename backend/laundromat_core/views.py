@@ -776,8 +776,10 @@ def owner_recovery_email_view(request):
 def owner_forgot_password_view(request):
     """
     POST /api/auth/forgot-password/
-    Body: { username: "admin" }
+    Body: { email: "owner@gmail.com", username: "admin" }
     Generates a 6-digit OTP, stores it, and emails it to the owner's recovery Gmail.
+    Only proceeds if the owner has voluntarily linked their Gmail; otherwise directs them
+    to log in with default credentials and configure it in recovery settings.
     """
     import random
     from datetime import timedelta
@@ -786,12 +788,28 @@ def owner_forgot_password_view(request):
     from .email_service import send_otp_email
 
     username = str(request.data.get('username', 'admin')).strip().lower()
+    email_input = str(request.data.get('email', '')).strip().lower()
 
-    # Check recovery email exists
-    recovery_email = OwnerConfig.get('recovery_email', '')
-    if not recovery_email:
+    # Check recovery email voluntarily given and verified in OwnerConfig
+    recovery_email = OwnerConfig.get('recovery_email', '').strip().lower()
+    is_verified = OwnerConfig.get('recovery_email_verified', 'false') == 'true'
+
+    # Case 1: First-timers or anyone where recovery email has not been voluntarily configured
+    if not recovery_email or not is_verified:
         return Response({
-            'error': 'No recovery email is set for this account. Please contact your administrator.'
+            'error': 'No recovery email has been set up yet. Please log into the portal using your default password and enter your Gmail in the recovery email settings first.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Require an email to be entered
+    if not email_input:
+        return Response({
+            'error': 'Please enter your registered recovery Gmail address.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # Case 2: Email input does not match the voluntarily registered recovery email
+    if email_input != recovery_email:
+        return Response({
+            'error': 'This email is not recognized as the registered recovery account. Please log into the portal using your default password and enter your Gmail in the recovery email settings first.'
         }, status=status.HTTP_400_BAD_REQUEST)
 
     # Verify user exists
