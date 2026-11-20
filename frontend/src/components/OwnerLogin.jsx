@@ -264,7 +264,35 @@ export default function OwnerLogin({ onLogin }) {
 
       {/* Right Login Form Panel */}
       <div className="login-right-panel">
-        <div className="right-top-bar">
+        {/* Mobile Brand Header — SanielSoft ai Name & Logo (mobile view only) */}
+        <div className="mobile-brand-bar mobile-login-brand-bar">
+          <div className="mobile-brand-left">
+            <div className="brand-icon mobile-brand-icon">
+              <svg viewBox="0 0 32 32" fill="none" className="wave-svg">
+                <circle cx="16" cy="16" r="14.5" stroke="#2558EA" strokeWidth="2.5" />
+                <path
+                  d="M9 13.5C11.5 10.5 13.5 10.5 16 13.5C18.5 16.5 20.5 16.5 23 13.5"
+                  stroke="#2558EA"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M9 18.5C11.5 15.5 13.5 15.5 16 18.5C18.5 21.5 20.5 21.5 23 18.5"
+                  stroke="#2558EA"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+            <div className="brand-text-col">
+              <span className="mobile-brand-title">SanielSoft ai</span>
+              <span className="mobile-brand-sub">OWNER PORTAL</span>
+            </div>
+          </div>
+          <span className="mobile-workspace-tag">OWNER WORKSPACE</span>
+        </div>
+
+        <div className="right-top-bar desktop-only-topbar">
           <span className="workspace-label">OWNER WORKSPACE</span>
         </div>
 

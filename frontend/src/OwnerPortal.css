@@ -2381,6 +2381,10 @@
   display: none;
 }
 
+.mobile-login-brand-bar {
+  display: none;
+}
+
 .mobile-brand-right {
   display: flex;
   align-items: center;
@@ -3150,6 +3154,32 @@
     justify-content: flex-start;
   }
 
+  .desktop-only-topbar {
+    display: none !important;
+  }
+
+  .mobile-login-brand-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 2px 14px 2px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(15, 24, 68, 0.08);
+    width: 100%;
+  }
+
+  .mobile-workspace-tag {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    color: #2558ea;
+    background: rgba(37, 88, 234, 0.08);
+    border: 1px solid rgba(37, 88, 234, 0.2);
+    padding: 3px 9px;
+    border-radius: 999px;
+    text-transform: uppercase;
+  }
+
   .right-top-bar {
     margin-bottom: 16px;
   }
@@ -3240,6 +3270,16 @@
   }
 
   /* ── Mobile Login & Forgot Password Optimization ── */
+  .mobile-login-brand-bar {
+    padding: 2px 2px 10px 2px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-workspace-tag {
+    font-size: 9.5px;
+    padding: 2px 7.5px;
+  }
+
   .login-right-panel {
     padding: 16px 12px 28px 12px;
   }
